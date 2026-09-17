@@ -35,7 +35,7 @@ renewal.
 6. **Copy the app's code onto the instance and start it** (from the project root, not `deploy/terraform/`):
    ```
    rsync -avz -e "ssh -i deploy/terraform/pickleball-open-play-key.pem" \
-     --exclude node_modules --exclude dist --exclude .data --exclude deploy \
+     --exclude node_modules --exclude dist --exclude .data --exclude deploy --exclude '*.app' \
      ./ ec2-user@<PUBLIC_IP>:~/pickleball-open-play/
    ssh -i deploy/terraform/pickleball-open-play-key.pem ec2-user@<PUBLIC_IP> \
      'cd pickleball-open-play && npm ci && npm run build && sudo systemctl start pickleball'
@@ -58,7 +58,7 @@ Since Feb 2024, AWS charges ~$0.005/hour for *any* public IPv4 address attached 
 Same `rsync` + restart as the initial deploy, just `restart` instead of `start`:
 ```
 rsync -avz -e "ssh -i deploy/terraform/pickleball-open-play-key.pem" \
-  --exclude node_modules --exclude dist --exclude .data --exclude deploy \
+  --exclude node_modules --exclude dist --exclude .data --exclude deploy --exclude '*.app' \
   ./ ec2-user@<PUBLIC_IP>:~/pickleball-open-play/
 ssh -i deploy/terraform/pickleball-open-play-key.pem ec2-user@<PUBLIC_IP> \
   'cd pickleball-open-play && npm ci && npm run build && sudo systemctl restart pickleball'

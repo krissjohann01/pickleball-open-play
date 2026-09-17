@@ -13,6 +13,9 @@ dist-ssr
 *.local
 .data
 
+# Compiled desktop launcher (regenerate via: osacompile -o "Pickleball Open Play.app" scripts/launcher.applescript)
+*.app
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

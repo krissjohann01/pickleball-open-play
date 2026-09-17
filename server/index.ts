@@ -240,5 +240,5 @@ server.on('upgrade', (req, socket, head) => {
 })
 
 server.listen(PORT, () => {
-  console.log(`Berean Pickleball Open Play listening on http://localhost:${PORT}`)
+  console.log(`Pickleball Open Play listening on http://localhost:${PORT}`)
 })

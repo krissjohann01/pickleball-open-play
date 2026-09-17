@@ -29,7 +29,7 @@ This starts both the Node server and the Vite dev server; open the printed local
 
 ### As a desktop app (local development/testing)
 
-Double-click **`Berean Pickleball Open Play.app`** in the project root. It rebuilds the app, starts the local server, and opens it in your default browser at `http://localhost:4321`. Handy for trying out changes without `npm run dev`. See `scripts/start.sh` / `scripts/launcher.applescript` if you need to change how it launches.
+Double-click **`Pickleball Open Play.app`** in the project root. It rebuilds the app, starts the local server, and opens it in your default browser at `http://localhost:4321`. Handy for trying out changes without `npm run dev`. See `scripts/start.sh` / `scripts/launcher.applescript` if you need to change how it launches.
 
 ### Running it on AWS EC2 (recommended for real use)
 

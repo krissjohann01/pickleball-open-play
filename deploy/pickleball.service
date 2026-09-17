@@ -1,5 +1,5 @@
 [Unit]
-Description=Berean Pickleball Open Play
+Description=Pickleball Open Play
 After=network.target
 
 [Service]

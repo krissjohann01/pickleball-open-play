@@ -17,10 +17,10 @@ There is no test suite/framework configured in this repo. The server (`server/`)
 
 ### Desktop launcher
 
-`Berean Pickleball Open Play.app` (in the project root) is a compiled AppleScript app that runs `scripts/start.sh`: rebuilds the app, starts the Node server (`npx tsx server/index.ts`) if one isn't already running on port 4321, and opens it in the default browser at `localhost:4321`. This is for local development/testing only now — real usage runs on EC2 (see below), so this script no longer does any LAN-IP/network-exposure handling. If `scripts/launcher.applescript` changes, recompile with:
+`Pickleball Open Play.app` (in the project root) is a compiled AppleScript app that runs `scripts/start.sh`: rebuilds the app, starts the Node server (`npx tsx server/index.ts`) if one isn't already running on port 4321, and opens it in the default browser at `localhost:4321`. This is for local development/testing only now — real usage runs on EC2 (see below), so this script no longer does any LAN-IP/network-exposure handling. If `scripts/launcher.applescript` changes, recompile with:
 
 ```
-osacompile -o "Berean Pickleball Open Play.app" scripts/launcher.applescript
+osacompile -o "Pickleball Open Play.app" scripts/launcher.applescript
 ```
 
 ### Deploying off the Mac (EC2)
