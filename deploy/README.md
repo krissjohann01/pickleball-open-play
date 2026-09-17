@@ -75,3 +75,5 @@ Set `expose_app_port_directly = true` in `terraform.tfvars` and re-apply (`terra
 ## Worth knowing: no authentication
 
 The app has no login/password — anyone with the URL can view and edit the roster/session. Fine for a casual tool shared only with your group, but if the URL gets out more broadly, anyone could mess with it. Options if that becomes a concern later: restrict the security group to specific IPs, or add a simple shared PIN gate to the app.
+
+There is basic abuse throttling built into the app itself (a per-IP connection cap, a per-connection action rate limit, and a per-IP HTTP request limit — see `ARCHITECTURE.md`), sized to comfortably handle a whole club session sharing one IP while still catching a genuine flood. That's protection against overload, not a substitute for authentication.

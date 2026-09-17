@@ -31,6 +31,8 @@ Infrastructure is defined as code in `deploy/terraform/` (Terraform, AWS provide
 
 **HTTPS**: [Caddy](https://caddyserver.com) runs as a reverse proxy in front of the app (Caddy on 80/443, the Node app only reachable on `localhost:4321` — the security group doesn't expose `app_port` publicly). Caddy automatically obtains and renews a free Let's Encrypt certificate for a [DuckDNS](https://www.duckdns.org) domain (`duckdns_subdomain`/`duckdns_token` variables). Since there's deliberately no static IP (see above), a `duckdns-update` systemd service re-points the DuckDNS domain at the instance's current public IP on every boot — this is what makes the URL stay stable across stop/start even though the IP doesn't. Amazon Linux 2023 isn't in Caddy's official package repos, so the startup script fetches the static binary directly from GitHub releases rather than using a package manager.
 
+**Throttling** (`server/index.ts`): since the app is internet-reachable with no authentication, three independent limits protect it — a per-IP WebSocket connection cap (150), a per-connection WebSocket message rate limit (20 messages / 5s, silently dropped past that), and a per-IP HTTP request rate limit (1000 / 60s, returns `429`). All three read the real client IP from the `X-Forwarded-For` header Caddy sets on proxied requests (`getClientIp`) — the raw socket address would just be Caddy's own loopback for every connection, making per-IP limits meaningless. The limits are deliberately generous: a whole club session can realistically share one public IP (venue Wi-Fi, or carrier CGNAT), so this is sized to catch genuine abuse (thousands of connections/messages) rather than a large legitimate group — validated with 50 concurrent connections against the live deployment with no impact.
+
 ### Installing on a phone/iPad
 
 `index.html` includes PWA meta tags (`apple-touch-icon`, `manifest.json`, `apple-mobile-web-app-capable`) so "Add to Home Screen" in Safari gives a real app icon that launches full-screen with no browser chrome. `public/favicon.svg` / `apple-touch-icon.png` / `icon-512.png` are the app's icon at different sizes — regenerate them together if the branding changes (there's no source design file; they were rasterized from the SVG via a headless-browser screenshot).
@@ -53,6 +55,8 @@ Every component in `src/components/` keeps the same prop-callback contracts rega
 ## Domain model (`src/types.ts`)
 
 `Player` (roster-level: id/name/skill level) vs `SessionPlayer` (adds session-scoped state: `gamesPlayed`, `lastPlayedSeq`, `partnerHistory`, `paused`, `foodOrders`). A session snapshots each selected roster player into a `SessionPlayer` at start time — roster edits made later don't retroactively affect an in-progress session.
+
+IDs (`Player.id`, `FoodOrder.id`) are generated with `src/id.ts`'s `generateId()`, not `crypto.randomUUID()`. The browser only allows `randomUUID()` in a "secure context" (HTTPS, or the `localhost` exception) — it throws on a plain-HTTP deployment reached by IP, which is exactly how this app was first tested on EC2 before Caddy/HTTPS existed, and broke "Add Player" silently. `generateId()` has no such restriction and works identically client- and server-side.
 
 `Session.courts` is an array of independent `CourtSlot`s (`playerIds` + `gamesOnCourt`), not synchronized "rounds" — each court advances on its own schedule via `fillCourt(session, courtNumber)` when the organizer taps that court's "Next Game" button. There is no global round counter.
 

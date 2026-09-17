@@ -13,7 +13,8 @@ A small Node server holds the one live session, so every connected device — la
 - **Late arrivals** — add a player mid-session, from the roster or brand new.
 - **Cost split** — court rental + entrance fee split across players who actually played, plus individual food/drink charges billed to whoever ordered them.
 - **Session summary** — end-of-session recap (games played, fairness spread, cost split) that can be saved as a Markdown file into `sessions/`.
-- **Live-synced** — every connected device (Mac, phone, iPad) sees the same session update in real time; no per-device local data.
+- **Live-synced** — every connected device (laptop, phone, iPad) sees the same session update in real time; no per-device local data.
+- **HTTPS + throttling out of the box** — free automatic HTTPS on EC2 (Caddy + Let's Encrypt via a free DuckDNS domain), and basic rate limiting/connection caps so the app holds up under a full club session or an accidental flood.
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for architecture details, or [HOW_IT_WORKS.md](./HOW_IT_WORKS.md) for a plain-English, non-technical walkthrough.
 
