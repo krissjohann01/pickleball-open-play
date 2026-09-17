@@ -23,6 +23,14 @@ const DATA_DIR = join(ROOT, '.data')
 const STATE_FILE = join(DATA_DIR, 'state.json')
 const PORT = Number(process.env.PORT) || 4321
 
+// Shared admin password — required to start/control a session. Falls back to
+// a well-known default for local dev convenience; set ADMIN_PASSWORD in
+// production (see deploy/).
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin'
+if (!process.env.ADMIN_PASSWORD) {
+  console.warn('ADMIN_PASSWORD not set — using the default "admin". Set it for any real deployment.')
+}
+
 interface AppState {
   roster: Player[]
   session: Session | null
@@ -87,8 +95,16 @@ const httpLimitersByIp = new Map<string, () => boolean>()
 // map would grow by one entry per unique IP ever seen (e.g. bot scans) forever.
 setInterval(() => httpLimitersByIp.clear(), 60 * 60 * 1000).unref()
 
+// Dedicated, stricter limit on login attempts specifically, to slow down
+// password guessing beyond what the general message rate limit alone would.
+const ADMIN_LOGIN_ATTEMPT_LIMIT = 5
+const ADMIN_LOGIN_ATTEMPT_WINDOW_MS = 60000
+const adminLoginLimitersByIp = new Map<string, () => boolean>()
+
 const wss = new WebSocketServer({ noServer: true })
 const clients = new Set<WebSocket>()
+/** Connections that have successfully logged in as admin — in-memory, per connection, not persisted. */
+const adminConnections = new Set<WebSocket>()
 
 function broadcast(message: unknown): void {
   const json = JSON.stringify(message)
@@ -101,8 +117,52 @@ function broadcastState(): void {
   broadcast({ type: 'state', roster: state.roster, session: state.session })
 }
 
+// Actions that control or advance a session are admin-only. Roster
+// self-service (setRoster) and the login/logout actions themselves are not.
+const ADMIN_ONLY_ACTIONS = new Set([
+  'startSession',
+  'nextGame',
+  'addExistingPlayer',
+  'addNewPlayer',
+  'togglePause',
+  'addFoodOrder',
+  'removeFoodOrder',
+  'endSession',
+  'closeSummary',
+  'saveSummary',
+])
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function handleMessage(msg: any): void {
+function handleMessage(msg: any, ws: WebSocket, ip: string): void {
+  if (msg.type === 'adminLogin') {
+    if (msg.password === ADMIN_PASSWORD) {
+      // Correct password always succeeds immediately — reconnects (flaky
+      // Wi-Fi, screen lock) shouldn't be able to lock a legitimate admin out.
+      adminConnections.add(ws)
+      ws.send(JSON.stringify({ type: 'adminStatus', isAdmin: true }))
+      return
+    }
+    // Only wrong-password guesses consume the rate-limit budget.
+    let allowAttempt = adminLoginLimitersByIp.get(ip)
+    if (!allowAttempt) {
+      allowAttempt = createRateLimiter(ADMIN_LOGIN_ATTEMPT_LIMIT, ADMIN_LOGIN_ATTEMPT_WINDOW_MS)
+      adminLoginLimitersByIp.set(ip, allowAttempt)
+    }
+    const tooManyAttempts = !allowAttempt()
+    ws.send(JSON.stringify({ type: 'adminStatus', isAdmin: false, tooManyAttempts }))
+    return
+  }
+
+  if (msg.type === 'adminLogout') {
+    adminConnections.delete(ws)
+    ws.send(JSON.stringify({ type: 'adminStatus', isAdmin: false }))
+    return
+  }
+
+  if (ADMIN_ONLY_ACTIONS.has(msg.type) && !adminConnections.has(ws)) {
+    return // silently ignore — the client UI shouldn't offer these to non-admins anyway
+  }
+
   switch (msg.type) {
     case 'setRoster':
       state.roster = msg.roster
@@ -177,7 +237,7 @@ wss.on('connection', (ws, req: IncomingMessage) => {
   ws.on('message', (data) => {
     if (!allowMessage()) return // silently drop — well-behaved clients never hit this
     try {
-      handleMessage(JSON.parse(data.toString()))
+      handleMessage(JSON.parse(data.toString()), ws, ip)
     } catch (err) {
       console.error('Bad WS message:', err)
     }
@@ -185,6 +245,7 @@ wss.on('connection', (ws, req: IncomingMessage) => {
 
   ws.on('close', () => {
     clients.delete(ws)
+    adminConnections.delete(ws)
     const remaining = (wsConnectionsByIp.get(ip) ?? 1) - 1
     if (remaining <= 0) wsConnectionsByIp.delete(ip)
     else wsConnectionsByIp.set(ip, remaining)

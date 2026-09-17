@@ -1,9 +1,13 @@
 # Copy this file to terraform.tfvars and fill in the DuckDNS values (get
-# them from https://www.duckdns.org, see deploy/README.md). Everything else
-# has a sensible default (see variables.tf).
+# them from https://www.duckdns.org, see deploy/README.md) and a real admin
+# password. Everything else has a sensible default (see variables.tf).
 
 duckdns_subdomain = "yourclubname"     # the part before .duckdns.org
 duckdns_token     = "paste-your-duckdns-token-here"
+
+# Gates session-control actions (start/advance/end a session, etc). The
+# roster page stays open to everyone regardless — pick something real.
+admin_password = "paste-a-real-password-here"
 
 # aws_region     = "ap-southeast-1"
 # instance_type  = "t3.micro"      # free-tier eligible for an account's first 12 months

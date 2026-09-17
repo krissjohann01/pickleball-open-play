@@ -50,7 +50,15 @@ Rendering is derived from shared state, not local navigation, for anything colla
 - `session && session.endedAt` → `SessionSummary`
 - otherwise → local `localView` (roster/setup) — deliberately *not* synced, so one device composing the "who's attending" form doesn't yank everyone else's screen to it.
 
-Every component in `src/components/` keeps the same prop-callback contracts regardless of this — `RosterView`'s `onChange(roster)`, `SessionView`'s `onNextGame(courtNumber)`, etc. `App.tsx` is the only place that changed when this moved from local `localStorage` state to server-synced state.
+Every component in `src/components/` keeps the same prop-callback contracts regardless of this — `RosterView`'s `onChange(roster)`, `SessionView`'s `onNextGame(courtNumber)`, etc. `App.tsx` is the only place that changed when this moved from local `localStorage` state to server-synced state (components since gained an `isAdmin` prop for the gating described next, but their action-callback contracts are unchanged).
+
+## Admin authentication (`server/index.ts` + `AdminBar.tsx`)
+
+The roster page is deliberately open to everyone — no login — so players can add themselves and the organizer doesn't have to enter a roster by hand. Everything that controls or advances a session is gated behind a single shared `ADMIN_PASSWORD` (env var; see `deploy/`).
+
+**Server side**: `adminConnections` is a `Set<WebSocket>` of connections that have successfully authenticated — membership, not a token, is the source of truth, and it's checked per-message against `ADMIN_ONLY_ACTIONS` (`startSession`, `nextGame`, `addExistingPlayer`, `addNewPlayer`, `togglePause`, `addFoodOrder`, `removeFoodOrder`, `endSession`, `closeSummary`, `saveSummary`). `setRoster` and the `adminLogin`/`adminLogout` messages themselves are never gated. A correct password always succeeds immediately, even under the login rate limit (below) — only wrong-password guesses consume that budget, so a legitimate admin's flaky-Wi-Fi reconnects can never lock them out. Login attempts get their own dedicated rate limit (5 wrong guesses / 60s per IP, on top of the general per-connection message limit) since this is the one thing standing between the public internet and session control.
+
+**Client side**: `App.tsx` holds `isAdmin` and remembers the password itself (in a ref + `localStorage`) so a dropped connection or page reload re-authenticates automatically on the new WebSocket's `onopen` — without this, admin status (being per-connection, in-memory, server-side) would otherwise vanish on every reconnect. Components receive `isAdmin` as a prop and disable/hide their own controls accordingly (each shows a plain "Admin login required" message) — the server-side gate is what's actually authoritative; the client-side disabling is just so a non-admin isn't looking at buttons that silently do nothing.
 
 ## Domain model (`src/types.ts`)
 

@@ -27,6 +27,7 @@ RestartSec=3
 User=ec2-user
 Environment=NODE_ENV=production
 Environment=PORT=${app_port}
+Environment=ADMIN_PASSWORD=${admin_password}
 
 [Install]
 WantedBy=multi-user.target

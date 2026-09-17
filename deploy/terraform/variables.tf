@@ -46,6 +46,12 @@ variable "duckdns_token" {
   sensitive   = true
 }
 
+variable "admin_password" {
+  description = "Shared password that gates session-control actions (starting a session, advancing courts, ending it, etc.). The roster page stays open to everyone regardless. Pick something real — this is the only thing standing between the public internet and your session controls."
+  type        = string
+  sensitive   = true
+}
+
 variable "expose_app_port_directly" {
   description = "Also open app_port to the internet directly, bypassing Caddy/HTTPS. Only useful for debugging — leave false normally."
   type        = bool

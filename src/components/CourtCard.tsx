@@ -4,11 +4,13 @@ import PlayerBadge from './PlayerBadge'
 export default function CourtCard({
   court,
   players,
+  isAdmin,
   canFill,
   onNextGame,
 }: {
   court: CourtSlot
   players: Map<string, SessionPlayer>
+  isAdmin: boolean
   canFill: boolean
   onNextGame: () => void
 }) {
@@ -45,12 +47,16 @@ export default function CourtCard({
 
       <button
         onClick={onNextGame}
-        disabled={!canFill}
+        disabled={!isAdmin || !canFill}
         className="w-full rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300"
       >
         {court.playerIds ? 'Next Game' : 'Start Game'}
       </button>
-      {!canFill && <p className="mt-1 text-center text-xs text-slate-400">Waiting for more players</p>}
+      {!isAdmin ? (
+        <p className="mt-1 text-center text-xs text-slate-400">Admin login required</p>
+      ) : (
+        !canFill && <p className="mt-1 text-center text-xs text-slate-400">Waiting for more players</p>
+      )}
     </div>
   )
 }

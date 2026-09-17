@@ -7,6 +7,7 @@ import PlayerBadge from './PlayerBadge'
 
 export default function SessionSummary({
   session,
+  isAdmin,
   onDone,
   onAddFoodOrder,
   onRemoveFoodOrder,
@@ -14,6 +15,7 @@ export default function SessionSummary({
   saveStatus,
 }: {
   session: Session
+  isAdmin: boolean
   onDone: () => void
   onAddFoodOrder: (playerId: string, description: string, amount: number) => void
   onRemoveFoodOrder: (playerId: string, orderId: string) => void
@@ -70,7 +72,12 @@ export default function SessionSummary({
         players={session.players}
       />
 
-      <FoodOrders players={session.players} onAddOrder={onAddFoodOrder} onRemoveOrder={onRemoveFoodOrder} />
+      <FoodOrders
+        players={session.players}
+        isAdmin={isAdmin}
+        onAddOrder={onAddFoodOrder}
+        onRemoveOrder={onRemoveFoodOrder}
+      />
 
       <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
         Games Played Per Court
@@ -106,17 +113,20 @@ export default function SessionSummary({
       <div className="flex flex-wrap items-center gap-3">
         <button
           onClick={onSaveSummary}
-          className="rounded-lg border border-slate-300 px-4 py-2 font-medium text-slate-700"
+          disabled={!isAdmin}
+          className="rounded-lg border border-slate-300 px-4 py-2 font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Save Summary
         </button>
         <button
           onClick={onDone}
-          className="rounded-lg bg-emerald-600 px-4 py-2 font-medium text-white shadow-sm"
+          disabled={!isAdmin}
+          className="rounded-lg bg-emerald-600 px-4 py-2 font-medium text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
         >
           Back to Roster
         </button>
       </div>
+      {!isAdmin && <p className="mt-2 text-sm text-slate-400">Admin login required to save or dismiss this summary.</p>}
       {saveStatus && <p className="mt-2 text-sm text-slate-500">{saveStatus}</p>}
     </div>
   )

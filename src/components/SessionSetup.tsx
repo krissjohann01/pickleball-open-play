@@ -4,10 +4,12 @@ import PlayerBadge from './PlayerBadge'
 
 export default function SessionSetup({
   roster,
+  isAdmin,
   onBack,
   onStart,
 }: {
   roster: Player[]
+  isAdmin: boolean
   onBack: () => void
   onStart: (
     selected: Player[],
@@ -33,7 +35,7 @@ export default function SessionSetup({
   }
 
   const selectedCount = selectedIds.size
-  const canStart = selectedCount >= 4 && numCourts >= 1 && durationMinutes >= 1
+  const canStart = isAdmin && selectedCount >= 4 && numCourts >= 1 && durationMinutes >= 1
   const estimatedPerPerson = selectedCount > 0 ? courtRentalTotal / selectedCount + entranceFeePerPerson : 0
 
   return (
@@ -134,6 +136,9 @@ export default function SessionSetup({
       </button>
       {selectedCount < 4 && (
         <p className="mt-2 text-sm text-red-500">Select at least 4 players.</p>
+      )}
+      {selectedCount >= 4 && !isAdmin && (
+        <p className="mt-2 text-sm text-red-500">Admin login required to start a session.</p>
       )}
     </div>
   )

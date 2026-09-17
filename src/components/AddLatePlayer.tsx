@@ -5,11 +5,13 @@ import { generateId } from '../id'
 
 export default function AddLatePlayer({
   rosterCandidates,
+  isAdmin,
   onAddExisting,
   onAddNew,
 }: {
   /** Roster players not already in this session. */
   rosterCandidates: Player[]
+  isAdmin: boolean
   onAddExisting: (player: Player) => void
   onAddNew: (player: Player) => void
 }) {
@@ -40,7 +42,8 @@ export default function AddLatePlayer({
         + Add a player who just arrived
       </summary>
       <div className="space-y-4 border-t border-slate-200 px-4 py-4">
-        {rosterCandidates.length > 0 && (
+        {!isAdmin && <p className="text-sm text-slate-400">Admin login required to add a player mid-session.</p>}
+        {isAdmin && rosterCandidates.length > 0 && (
           <form onSubmit={addExisting} className="flex flex-wrap items-center gap-2">
             <select
               value={selectedRosterId}
@@ -64,31 +67,33 @@ export default function AddLatePlayer({
           </form>
         )}
 
-        <form onSubmit={addNew} className="flex flex-wrap items-center gap-2">
-          <input
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="New player name"
-            className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          />
-          <select
-            value={newLevel}
-            onChange={(e) => setNewLevel(e.target.value as SkillLevel)}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          >
-            {SKILL_LEVELS.map((l) => (
-              <option key={l.value} value={l.value}>
-                {l.ratingLabel} · {l.name}
-              </option>
-            ))}
-          </select>
-          <button
-            type="submit"
-            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white"
-          >
-            Add New
-          </button>
-        </form>
+        {isAdmin && (
+          <form onSubmit={addNew} className="flex flex-wrap items-center gap-2">
+            <input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="New player name"
+              className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            />
+            <select
+              value={newLevel}
+              onChange={(e) => setNewLevel(e.target.value as SkillLevel)}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            >
+              {SKILL_LEVELS.map((l) => (
+                <option key={l.value} value={l.value}>
+                  {l.ratingLabel} · {l.name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="submit"
+              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white"
+            >
+              Add New
+            </button>
+          </form>
+        )}
       </div>
     </details>
   )

@@ -10,14 +10,16 @@ That "one copy" lives on a single computer — a small rented computer running i
 
 ## A typical session, step by step
 
-1. **Add players to the roster** ahead of time — name and a skill rating for each person. This list is saved and carries over week to week.
-2. **Start a session**: pick who showed up today, how many courts you have, how long you're playing, and optionally how much the court rental and any entrance fee cost.
+1. **Add players to the roster** ahead of time — anyone can do this themselves, no login needed. Name and a skill rating for each person. This list is saved and carries over week to week.
+2. **The organizer starts a session** (this is the first thing that needs the admin password): pick who showed up today, how many courts you have, how long you're playing, and optionally how much the court rental and any entrance fee cost.
 3. The app immediately **fills every court** with a fair, mixed-skill group of four.
-4. As each court finishes its game, whoever's running that court taps **"Next Game"** — just for that court. Courts don't wait on each other; one can be on its third game while another's still on its first.
-5. Anyone can **add a player who arrives late**, right from the same screen.
-6. If someone orders food or drinks at the court, it gets logged against **that person specifically** — not split evenly with everyone else.
-7. When play wraps up, **end the session** to see a recap: total games, how evenly everyone played, and what each person owes (their share of the court cost plus their own food tab).
+4. As each court finishes its game, the organizer taps **"Next Game"** — just for that court. Courts don't wait on each other; one can be on its third game while another's still on its first.
+5. The organizer can **add a player who arrives late**, right from the same screen.
+6. If someone orders food or drinks at the court, the organizer logs it against **that person specifically** — not split evenly with everyone else.
+7. When play wraps up, the organizer **ends the session** to see a recap: total games, how evenly everyone played, and what each person owes (their share of the court cost plus their own food tab).
 8. That recap can be **saved as a file** you can look back on later.
+
+Anyone can watch a live session update in real time on their own phone the whole way through — they just can't touch the controls in steps 2, 4, 5, 6, 7 without the admin password.
 
 ## How it decides who plays next
 

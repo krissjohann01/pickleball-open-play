@@ -126,6 +126,7 @@ resource "aws_instance" "this" {
     app_port          = var.app_port
     duckdns_subdomain = var.duckdns_subdomain
     duckdns_token     = var.duckdns_token
+    admin_password    = var.admin_password
   })
   user_data_replace_on_change = true
 

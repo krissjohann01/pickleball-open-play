@@ -11,6 +11,7 @@ import PlayerBadge from './PlayerBadge'
 export default function SessionView({
   session,
   roster,
+  isAdmin,
   onNextGame,
   onAddExistingPlayer,
   onAddNewPlayer,
@@ -21,6 +22,7 @@ export default function SessionView({
 }: {
   session: Session
   roster: Player[]
+  isAdmin: boolean
   onNextGame: (courtNumber: number) => void
   onAddExistingPlayer: (player: Player) => void
   onAddNewPlayer: (player: Player) => void
@@ -81,7 +83,9 @@ export default function SessionView({
         </div>
         <button
           onClick={onEndSession}
-          className="rounded-lg border border-slate-300 px-4 py-2 font-medium text-slate-700"
+          disabled={!isAdmin}
+          title={isAdmin ? undefined : 'Admin login required'}
+          className="rounded-lg border border-slate-300 px-4 py-2 font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           End Session
         </button>
@@ -114,6 +118,7 @@ export default function SessionView({
         <>
           <AddLatePlayer
             rosterCandidates={rosterCandidates}
+            isAdmin={isAdmin}
             onAddExisting={onAddExistingPlayer}
             onAddNew={onAddNewPlayer}
           />
@@ -128,6 +133,7 @@ export default function SessionView({
                 key={court.courtNumber}
                 court={court}
                 players={playersById}
+                isAdmin={isAdmin}
                 canFill={canFillCourt(session, court.courtNumber)}
                 onNextGame={() => onNextGame(court.courtNumber)}
               />
@@ -149,13 +155,15 @@ export default function SessionView({
                     <span className="text-xs text-slate-400">
                       ({p.gamesPlayed} {p.gamesPlayed === 1 ? 'game' : 'games'})
                     </span>
-                    <button
-                      onClick={() => onTogglePause(p.id, true)}
-                      className="rounded-full px-2 py-0.5 text-xs text-slate-500 hover:bg-slate-100"
-                      title="Step away — skip until resumed"
-                    >
-                      Pause
-                    </button>
+                    {isAdmin && (
+                      <button
+                        onClick={() => onTogglePause(p.id, true)}
+                        className="rounded-full px-2 py-0.5 text-xs text-slate-500 hover:bg-slate-100"
+                        title="Step away — skip until resumed"
+                      >
+                        Pause
+                      </button>
+                    )}
                   </span>
                 ))}
               </div>
@@ -174,12 +182,14 @@ export default function SessionView({
                     className="flex items-center gap-1.5 rounded-full border border-dashed border-slate-300 bg-slate-50 py-1 pl-3 pr-1.5 text-sm text-slate-500"
                   >
                     {p.name}
-                    <button
-                      onClick={() => onTogglePause(p.id, false)}
-                      className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-emerald-700"
-                    >
-                      Resume
-                    </button>
+                    {isAdmin && (
+                      <button
+                        onClick={() => onTogglePause(p.id, false)}
+                        className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-emerald-700"
+                      >
+                        Resume
+                      </button>
+                    )}
                   </span>
                 ))}
               </div>
@@ -215,7 +225,12 @@ export default function SessionView({
             players={session.players}
           />
 
-          <FoodOrders players={session.players} onAddOrder={onAddFoodOrder} onRemoveOrder={onRemoveFoodOrder} />
+          <FoodOrders
+            players={session.players}
+            isAdmin={isAdmin}
+            onAddOrder={onAddFoodOrder}
+            onRemoveOrder={onRemoveFoodOrder}
+          />
         </>
       )}
     </div>

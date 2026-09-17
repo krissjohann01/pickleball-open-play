@@ -19,7 +19,7 @@ renewal.
 
 3. **Configure AWS credentials** so Terraform can act on your account — any of the usual ways work, e.g. `aws configure` (needs the AWS CLI) or exporting `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`. Terraform will not run without these; this is the one step that has to happen outside this repo.
 
-4. **Set your DuckDNS details**: copy `deploy/terraform/terraform.tfvars.example` to `deploy/terraform/terraform.tfvars` and fill in `duckdns_subdomain` and `duckdns_token` (this file is gitignored — the token never gets committed).
+4. **Set your DuckDNS details and an admin password**: copy `deploy/terraform/terraform.tfvars.example` to `deploy/terraform/terraform.tfvars` and fill in `duckdns_subdomain`, `duckdns_token`, and `admin_password` (this file is gitignored — none of these get committed). The admin password gates session-control actions; the roster page stays open to everyone regardless — see `ARCHITECTURE.md`.
 
 5. **Provision the infrastructure**:
    ```
@@ -35,7 +35,7 @@ renewal.
 6. **Copy the app's code onto the instance and start it** (from the project root, not `deploy/terraform/`):
    ```
    rsync -avz -e "ssh -i deploy/terraform/pickleball-open-play-key.pem" \
-     --exclude node_modules --exclude dist --exclude .data --exclude deploy --exclude '*.app' \
+     --exclude node_modules --exclude dist --exclude .data --exclude deploy --exclude '*.app' --exclude .git \
      ./ ec2-user@<PUBLIC_IP>:~/pickleball-open-play/
    ssh -i deploy/terraform/pickleball-open-play-key.pem ec2-user@<PUBLIC_IP> \
      'cd pickleball-open-play && npm ci && npm run build && sudo systemctl start pickleball'
@@ -58,7 +58,7 @@ Since Feb 2024, AWS charges ~$0.005/hour for *any* public IPv4 address attached 
 Same `rsync` + restart as the initial deploy, just `restart` instead of `start`:
 ```
 rsync -avz -e "ssh -i deploy/terraform/pickleball-open-play-key.pem" \
-  --exclude node_modules --exclude dist --exclude .data --exclude deploy --exclude '*.app' \
+  --exclude node_modules --exclude dist --exclude .data --exclude deploy --exclude '*.app' --exclude .git \
   ./ ec2-user@<PUBLIC_IP>:~/pickleball-open-play/
 ssh -i deploy/terraform/pickleball-open-play-key.pem ec2-user@<PUBLIC_IP> \
   'cd pickleball-open-play && npm ci && npm run build && sudo systemctl restart pickleball'
@@ -72,8 +72,10 @@ Set `expose_app_port_directly = true` in `terraform.tfvars` and re-apply (`terra
 
 `deploy/setup.sh` and `deploy/pickleball.service` do the Node/systemd part by hand over SSH (no Caddy/HTTPS setup included), if you'd rather click through the EC2 console yourself. `deploy/terraform/` is the recommended path since it's repeatable and `terraform destroy` cleanly removes everything when you're done.
 
-## Worth knowing: no authentication
+## Worth knowing: what's gated and what isn't
 
-The app has no login/password — anyone with the URL can view and edit the roster/session. Fine for a casual tool shared only with your group, but if the URL gets out more broadly, anyone could mess with it. Options if that becomes a concern later: restrict the security group to specific IPs, or add a simple shared PIN gate to the app.
+The roster page has no login — anyone with the URL can view it and add themselves, on purpose, so the admin doesn't have to enter everyone by hand. Starting a session and every in-session control (advancing a court, pausing a player, food charges, ending the session, saving the summary) requires the shared `admin_password` — see `ARCHITECTURE.md` for exactly what's gated. Anyone without it can still watch a live session update in real time, just not touch the controls.
 
-There is basic abuse throttling built into the app itself (a per-IP connection cap, a per-connection action rate limit, and a per-IP HTTP request limit — see `ARCHITECTURE.md`), sized to comfortably handle a whole club session sharing one IP while still catching a genuine flood. That's protection against overload, not a substitute for authentication.
+Changing the admin password on an already-running instance: edit `terraform.tfvars` and re-apply just the instance's environment — in practice, SSH in and edit `/etc/systemd/system/pickleball.service`'s `Environment=ADMIN_PASSWORD=` line directly, then `sudo systemctl daemon-reload && sudo systemctl restart pickleball` (a full `terraform apply` would replace the instance — see the Terraform section in `ARCHITECTURE.md`).
+
+There is also basic abuse throttling built into the app itself (a per-IP connection cap, a per-connection action rate limit, a per-IP HTTP request limit, and a dedicated rate limit on admin login attempts specifically — see `ARCHITECTURE.md`), sized to comfortably handle a whole club session sharing one IP while still catching a genuine flood.

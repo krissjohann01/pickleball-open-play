@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import AdminBar from './components/AdminBar'
 import RosterView from './components/RosterView'
 import SessionSetup from './components/SessionSetup'
 import SessionView from './components/SessionView'
@@ -6,6 +7,8 @@ import SessionSummary from './components/SessionSummary'
 import type { Player, Session } from './types'
 
 type LocalView = 'roster' | 'setup'
+
+const ADMIN_PASSWORD_STORAGE_KEY = 'pickleball.adminPassword'
 
 function wsUrl(): string {
   const protocol = location.protocol === 'https:' ? 'wss' : 'ws'
@@ -17,7 +20,14 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [localView, setLocalView] = useState<LocalView>('roster')
   const [saveStatus, setSaveStatus] = useState<string | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [adminError, setAdminError] = useState<string | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
+  const rememberedPasswordRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    rememberedPasswordRef.current = localStorage.getItem(ADMIN_PASSWORD_STORAGE_KEY)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -27,6 +37,12 @@ export default function App() {
       socket = new WebSocket(wsUrl())
       wsRef.current = socket
 
+      socket.onopen = () => {
+        if (rememberedPasswordRef.current) {
+          send({ type: 'adminLogin', password: rememberedPasswordRef.current })
+        }
+      }
+
       socket.onmessage = (event) => {
         const msg = JSON.parse(event.data)
         if (msg.type === 'state') {
@@ -34,6 +50,16 @@ export default function App() {
           setSession(msg.session)
         } else if (msg.type === 'summarySaved') {
           setSaveStatus(`Saved ${msg.filename} to the sessions folder.`)
+        } else if (msg.type === 'adminStatus') {
+          setIsAdmin(msg.isAdmin)
+          if (!msg.isAdmin && rememberedPasswordRef.current) {
+            // A remembered password stopped working (changed server-side) — forget it.
+            rememberedPasswordRef.current = null
+            localStorage.removeItem(ADMIN_PASSWORD_STORAGE_KEY)
+          }
+          setAdminError(
+            msg.isAdmin ? null : msg.tooManyAttempts ? 'Too many attempts — try again in a minute.' : null,
+          )
         }
       }
 
@@ -53,6 +79,20 @@ export default function App() {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(message))
     }
+  }
+
+  function adminLogin(password: string) {
+    setAdminError(null)
+    rememberedPasswordRef.current = password
+    localStorage.setItem(ADMIN_PASSWORD_STORAGE_KEY, password)
+    send({ type: 'adminLogin', password })
+  }
+
+  function adminLogout() {
+    rememberedPasswordRef.current = null
+    localStorage.removeItem(ADMIN_PASSWORD_STORAGE_KEY)
+    send({ type: 'adminLogout' })
+    setIsAdmin(false)
   }
 
   function updateRoster(newRoster: Player[]) {
@@ -111,11 +151,13 @@ export default function App() {
     return <div className="p-10 text-center text-sm text-slate-500">Connecting…</div>
   }
 
+  let content
   if (session && !session.endedAt) {
-    return (
+    content = (
       <SessionView
         session={session}
         roster={roster}
+        isAdmin={isAdmin}
         onNextGame={nextGame}
         onAddExistingPlayer={addExistingPlayer}
         onAddNewPlayer={addNewPlayer}
@@ -125,12 +167,11 @@ export default function App() {
         onEndSession={endSession}
       />
     )
-  }
-
-  if (session && session.endedAt) {
-    return (
+  } else if (session && session.endedAt) {
+    content = (
       <SessionSummary
         session={session}
+        isAdmin={isAdmin}
         onDone={closeSummary}
         onAddFoodOrder={addOrder}
         onRemoveFoodOrder={removeOrder}
@@ -138,11 +179,23 @@ export default function App() {
         saveStatus={saveStatus}
       />
     )
+  } else if (localView === 'setup') {
+    content = (
+      <SessionSetup
+        roster={roster}
+        isAdmin={isAdmin}
+        onBack={() => setLocalView('roster')}
+        onStart={startSession}
+      />
+    )
+  } else {
+    content = <RosterView roster={roster} onChange={updateRoster} onStartSetup={() => setLocalView('setup')} />
   }
 
-  if (localView === 'setup') {
-    return <SessionSetup roster={roster} onBack={() => setLocalView('roster')} onStart={startSession} />
-  }
-
-  return <RosterView roster={roster} onChange={updateRoster} onStartSetup={() => setLocalView('setup')} />
+  return (
+    <>
+      <AdminBar isAdmin={isAdmin} onLogin={adminLogin} onLogout={adminLogout} error={adminError} />
+      {content}
+    </>
+  )
 }
