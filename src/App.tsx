@@ -125,6 +125,10 @@ export default function App() {
     send({ type: 'togglePause', playerId, paused })
   }
 
+  function renameCourt(courtNumber: number, label: string) {
+    send({ type: 'renameCourt', courtNumber, label })
+  }
+
   function addOrder(playerId: string, description: string, amount: number) {
     send({ type: 'addFoodOrder', playerId, description, amount })
   }
@@ -162,6 +166,7 @@ export default function App() {
         onAddExistingPlayer={addExistingPlayer}
         onAddNewPlayer={addNewPlayer}
         onTogglePause={togglePause}
+        onRenameCourt={renameCourt}
         onAddFoodOrder={addOrder}
         onRemoveFoodOrder={removeOrder}
         onEndSession={endSession}

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { CourtSlot, SessionPlayer } from '../types'
 import PlayerBadge from './PlayerBadge'
 
@@ -7,21 +8,69 @@ export default function CourtCard({
   isAdmin,
   canFill,
   onNextGame,
+  onRename,
 }: {
   court: CourtSlot
   players: Map<string, SessionPlayer>
   isAdmin: boolean
   canFill: boolean
   onNextGame: () => void
+  onRename: (label: string) => void
 }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(court.label)
+
+  function startEditing() {
+    setDraft(court.label)
+    setEditing(true)
+  }
+
+  function save() {
+    const trimmed = draft.trim()
+    if (trimmed && trimmed !== court.label) onRename(trimmed)
+    setEditing(false)
+  }
+
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-        Court {court.courtNumber}
-        {court.gamesOnCourt > 0 && (
-          <span className="ml-1 font-normal normal-case text-slate-400">· Game {court.gamesOnCourt}</span>
-        )}
-      </h3>
+      {editing ? (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            save()
+          }}
+          className="mb-3 flex items-center gap-1"
+        >
+          <input
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={save}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setEditing(false)
+            }}
+            maxLength={40}
+            className="min-w-0 flex-1 rounded-md border border-slate-300 px-2 py-1 text-sm font-semibold uppercase tracking-wide text-slate-700"
+          />
+        </form>
+      ) : (
+        <h3 className="mb-3 flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-slate-500">
+          {court.label}
+          {court.gamesOnCourt > 0 && (
+            <span className="font-normal normal-case text-slate-400">· Game {court.gamesOnCourt}</span>
+          )}
+          {isAdmin && (
+            <button
+              onClick={startEditing}
+              className="ml-auto text-xs font-normal normal-case text-slate-400 hover:text-slate-600"
+              title="Rename this court"
+              aria-label={`Rename ${court.label}`}
+            >
+              Rename
+            </button>
+          )}
+        </h3>
+      )}
 
       {court.playerIds ? (
         <ul className="mb-3 space-y-2">

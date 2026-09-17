@@ -83,7 +83,7 @@ export function buildSummaryMarkdown(session: Session): string {
   lines.push(`## Games Played Per Court`)
   lines.push('')
   for (const c of session.courts) {
-    lines.push(`- Court ${c.courtNumber}: ${c.gamesOnCourt}`)
+    lines.push(`- ${c.label}: ${c.gamesOnCourt}`)
   }
   lines.push('')
 

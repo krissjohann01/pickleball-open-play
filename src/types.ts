@@ -35,6 +35,9 @@ export interface SessionPlayer {
 
 export interface CourtSlot {
   courtNumber: number
+  /** Editable display name (defaults to "Court {courtNumber}") — lets the
+   * organizer match whatever physical court numbers the venue assigned. */
+  label: string
   /** null until the court's first game is generated. */
   playerIds: string[] | null
   gamesOnCourt: number

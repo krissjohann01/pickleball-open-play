@@ -16,6 +16,7 @@ export default function SessionView({
   onAddExistingPlayer,
   onAddNewPlayer,
   onTogglePause,
+  onRenameCourt,
   onAddFoodOrder,
   onRemoveFoodOrder,
   onEndSession,
@@ -27,6 +28,7 @@ export default function SessionView({
   onAddExistingPlayer: (player: Player) => void
   onAddNewPlayer: (player: Player) => void
   onTogglePause: (playerId: string, paused: boolean) => void
+  onRenameCourt: (courtNumber: number, label: string) => void
   onAddFoodOrder: (playerId: string, description: string, amount: number) => void
   onRemoveFoodOrder: (playerId: string, orderId: string) => void
   onEndSession: () => void
@@ -136,6 +138,7 @@ export default function SessionView({
                 isAdmin={isAdmin}
                 canFill={canFillCourt(session, court.courtNumber)}
                 onNextGame={() => onNextGame(court.courtNumber)}
+                onRename={(label) => onRenameCourt(court.courtNumber, label)}
               />
             ))}
           </div>

@@ -12,6 +12,7 @@ import {
   endSession,
   fillCourt,
   removeFoodOrder,
+  renameCourt,
   setPlayerPaused,
 } from '../src/matchmaking.ts'
 import { buildSummaryMarkdown, summaryFilename } from '../src/fileExport.ts'
@@ -127,6 +128,7 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'togglePause',
   'addFoodOrder',
   'removeFoodOrder',
+  'renameCourt',
   'endSession',
   'closeSummary',
   'saveSummary',
@@ -190,6 +192,9 @@ function handleMessage(msg: any, ws: WebSocket, ip: string): void {
       break
     case 'togglePause':
       if (state.session) state.session = setPlayerPaused(state.session, msg.playerId, msg.paused)
+      break
+    case 'renameCourt':
+      if (state.session) state.session = renameCourt(state.session, msg.courtNumber, msg.label)
       break
     case 'addFoodOrder':
       if (state.session) state.session = addFoodOrder(state.session, msg.playerId, msg.description, msg.amount)

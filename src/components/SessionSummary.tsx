@@ -88,7 +88,7 @@ export default function SessionSummary({
             key={c.courtNumber}
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
           >
-            Court {c.courtNumber}: <span className="font-medium">{c.gamesOnCourt}</span>
+            {c.label}: <span className="font-medium">{c.gamesOnCourt}</span>
           </li>
         ))}
       </ul>

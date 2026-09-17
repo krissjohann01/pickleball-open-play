@@ -191,6 +191,7 @@ export function createSession(
     })),
     courts: Array.from({ length: numCourts }, (_, i) => ({
       courtNumber: i + 1,
+      label: `Court ${i + 1}`,
       playerIds: null,
       gamesOnCourt: 0,
     })),
@@ -198,6 +199,16 @@ export function createSession(
     entranceFeePerPerson,
   }
   return fillAllEmptyCourts(session)
+}
+
+/** Renames a court's display label — e.g. to match whatever physical court number a rented venue assigned. */
+export function renameCourt(session: Session, courtNumber: number, label: string): Session {
+  const trimmed = label.trim()
+  if (!trimmed) return session
+  return {
+    ...session,
+    courts: session.courts.map((c) => (c.courtNumber === courtNumber ? { ...c, label: trimmed } : c)),
+  }
 }
 
 /** Marks the session ended — data stays so the summary can render, but no more games start. */
