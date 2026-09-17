@@ -17,7 +17,7 @@ There is no test suite/framework configured in this repo. The server (`server/`)
 
 ### Desktop launcher
 
-`Berean Pickleball Open Play.app` (in the project root) is a compiled AppleScript app that runs `scripts/start.sh`: rebuilds the app, starts the Node server (`npx tsx server/index.ts`) if one isn't already running on port 4321, and opens the default browser. The server listens on all network interfaces by default, so phones/tablets on the same Wi-Fi can reach it; the script then shows a macOS notification with the LAN URL (via `ipconfig getifaddr`). If `scripts/launcher.applescript` changes, recompile with:
+`Berean Pickleball Open Play.app` (in the project root) is a compiled AppleScript app that runs `scripts/start.sh`: rebuilds the app, starts the Node server (`npx tsx server/index.ts`) if one isn't already running on port 4321, and opens it in the default browser at `localhost:4321`. This is for local development/testing only now — real usage runs on EC2 (see below), so this script no longer does any LAN-IP/network-exposure handling. If `scripts/launcher.applescript` changes, recompile with:
 
 ```
 osacompile -o "Berean Pickleball Open Play.app" scripts/launcher.applescript
@@ -27,7 +27,9 @@ osacompile -o "Berean Pickleball Open Play.app" scripts/launcher.applescript
 
 See `deploy/README.md`. The app needs no code changes to run on a server instead of a laptop — `server/index.ts` already binds to all interfaces and persists to local disk; deploying is purely an ops task (provision a box, run the same Node process, keep it up via systemd). `PORT` is configurable via the `PORT` env var (defaults to 4321) for environments that need a different port.
 
-Infrastructure is defined as code in `deploy/terraform/` (Terraform, AWS provider): EC2 instance, security group, and a generated SSH key pair, with a `user_data` startup script that installs Node and registers (but doesn't start) the systemd service. Deliberately excluded: an Elastic IP (costs the same as the auto-assigned public IP while running, but also while *stopped* — see the cost note in `deploy/README.md`) and any automation of the code-copy step (kept as a plain `rsync`, so the first deploy and later updates use the identical command).
+Infrastructure is defined as code in `deploy/terraform/` (Terraform, AWS provider): EC2 instance, security group, and a generated SSH key pair, with a `user_data` startup script that installs Node + Caddy and registers (but doesn't start) the app's systemd service. Deliberately excluded: an Elastic IP (costs the same as the auto-assigned public IP while running, but also while *stopped* — see the cost note in `deploy/README.md`) and any automation of the code-copy step (kept as a plain `rsync`, so the first deploy and later updates use the identical command).
+
+**HTTPS**: [Caddy](https://caddyserver.com) runs as a reverse proxy in front of the app (Caddy on 80/443, the Node app only reachable on `localhost:4321` — the security group doesn't expose `app_port` publicly). Caddy automatically obtains and renews a free Let's Encrypt certificate for a [DuckDNS](https://www.duckdns.org) domain (`duckdns_subdomain`/`duckdns_token` variables). Since there's deliberately no static IP (see above), a `duckdns-update` systemd service re-points the DuckDNS domain at the instance's current public IP on every boot — this is what makes the URL stay stable across stop/start even though the IP doesn't. Amazon Linux 2023 isn't in Caddy's official package repos, so the startup script fetches the static binary directly from GitHub releases rather than using a package manager.
 
 ### Installing on a phone/iPad
 

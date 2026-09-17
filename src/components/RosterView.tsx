@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Player, SkillLevel } from '../types'
 import { SKILL_LEVELS } from '../skillLevels'
+import { generateId } from '../id'
 import PlayerBadge from './PlayerBadge'
 import SkillLevelLegend from './SkillLevelLegend'
 
@@ -20,7 +21,7 @@ export default function RosterView({
     e.preventDefault()
     const trimmed = name.trim()
     if (!trimmed) return
-    const player: Player = { id: crypto.randomUUID(), name: trimmed, level }
+    const player: Player = { id: generateId(), name: trimmed, level }
     onChange([...roster, player])
     setName('')
     setLevel(SKILL_LEVELS[0].value)

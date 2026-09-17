@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Player, SkillLevel } from '../types'
 import { SKILL_LEVELS } from '../skillLevels'
+import { generateId } from '../id'
 
 export default function AddLatePlayer({
   rosterCandidates,
@@ -28,7 +29,7 @@ export default function AddLatePlayer({
     e.preventDefault()
     const trimmed = newName.trim()
     if (!trimmed) return
-    onAddNew({ id: crypto.randomUUID(), name: trimmed, level: newLevel })
+    onAddNew({ id: generateId(), name: trimmed, level: newLevel })
     setNewName('')
     setNewLevel(SKILL_LEVELS[0].value)
   }

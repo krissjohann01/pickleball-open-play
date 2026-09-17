@@ -4,7 +4,8 @@ output "public_ip" {
 }
 
 output "app_url" {
-  value = "http://${aws_instance.this.public_ip}:${var.app_port}"
+  description = "The real URL to use — HTTPS via Caddy + your DuckDNS domain. Stable across stop/start as long as the DuckDNS-update step runs on each boot (see deploy/README.md)."
+  value       = "https://${var.duckdns_subdomain}.duckdns.org"
 }
 
 output "ssh_command" {

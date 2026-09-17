@@ -46,12 +46,19 @@ resource "local_sensitive_file" "private_key" {
   file_permission = "0400"
 }
 
-# --- Security group: SSH from your current IP only, the app port from
+# --- Security group: SSH from your current IP only, HTTP/HTTPS from
 #     anywhere (that's the whole point — players/organizers reach it from
-#     wherever they are), all outbound traffic allowed. ---
+#     wherever they are), all outbound traffic allowed. The raw app_port is
+#     intentionally NOT exposed publicly — Caddy (on 80/443) is the only way
+#     in from the internet, terminating HTTPS and proxying to the app
+#     locally. Set var.expose_app_port_directly = true temporarily if you
+#     need to debug the app without going through Caddy. ---
 resource "aws_security_group" "this" {
-  name        = "${var.project_name}-sg"
-  description = "SSH from the deployer's IP; app port from anywhere"
+  name = "${var.project_name}-sg"
+  # NOTE: this description is immutable in AWS — changing it forces full SG
+  # replacement (and a live-instance re-attach). Leave it as-is even though
+  # the SG's actual purpose has evolved past what it originally said.
+  description = "SSH from the IP of deployer; app port from anywhere"
 
   ingress {
     description = "SSH"
@@ -62,11 +69,30 @@ resource "aws_security_group" "this" {
   }
 
   ingress {
-    description = "App"
-    from_port   = var.app_port
-    to_port     = var.app_port
+    description = "HTTP (Caddy, also used for the ACME challenge)"
+    from_port   = 80
+    to_port     = 80
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "HTTPS (Caddy)"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  dynamic "ingress" {
+    for_each = var.expose_app_port_directly ? [1] : []
+    content {
+      description = "App (direct, debug only)"
+      from_port   = var.app_port
+      to_port     = var.app_port
+      protocol    = "tcp"
+      cidr_blocks = ["0.0.0.0/0"]
+    }
   }
 
   egress {
@@ -95,9 +121,11 @@ resource "aws_instance" "this" {
   associate_public_ip_address = true
 
   user_data = templatefile("${path.module}/templates/user_data.sh.tpl", {
-    project_name = var.project_name
-    app_dir      = local.app_dir
-    app_port     = var.app_port
+    project_name      = var.project_name
+    app_dir           = local.app_dir
+    app_port          = var.app_port
+    duckdns_subdomain = var.duckdns_subdomain
+    duckdns_token     = var.duckdns_token
   })
   user_data_replace_on_change = true
 

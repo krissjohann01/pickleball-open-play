@@ -16,9 +16,6 @@ npm run build --silent
 
 # Only start a server if one isn't already serving this app.
 if ! curl -sf "$URL" >/dev/null 2>&1; then
-  # Listens on all network interfaces by default, so a phone/iPad on the same
-  # Wi-Fi can open it too (macOS may prompt to allow incoming connections the
-  # first time — that's expected, just click Allow).
   nohup npx tsx server/index.ts >/tmp/pickleball-open-play.log 2>&1 &
   for _ in $(seq 1 40); do
     curl -sf "$URL" >/dev/null 2>&1 && break
@@ -27,8 +24,3 @@ if ! curl -sf "$URL" >/dev/null 2>&1; then
 fi
 
 open "$URL"
-
-LAN_IP="$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || true)"
-if [ -n "$LAN_IP" ]; then
-  osascript -e "display notification \"On your phone or iPad (same Wi-Fi): http://$LAN_IP:$PORT\" with title \"Berean Pickleball Open Play\" subtitle \"Also reachable on your network\"" >/dev/null 2>&1 || true
-fi

@@ -1,4 +1,5 @@
 import type { Player, Session, SessionPlayer } from './types'
+import { generateId } from './id'
 
 const PLAYERS_PER_COURT = 4
 const VARIETY_ATTEMPTS = 25
@@ -152,7 +153,7 @@ export function addFoodOrder(session: Session, playerId: string, description: st
     ...session,
     players: session.players.map((p) =>
       p.id === playerId
-        ? { ...p, foodOrders: [...p.foodOrders, { id: crypto.randomUUID(), description, amount }] }
+        ? { ...p, foodOrders: [...p.foodOrders, { id: generateId(), description, amount }] }
         : p,
     ),
   }

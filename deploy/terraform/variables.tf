@@ -1,7 +1,7 @@
 variable "aws_region" {
   description = "AWS region to deploy into."
   type        = string
-  default     = "us-east-1"
+  default     = "ap-southeast-1"
 }
 
 variable "instance_type" {
@@ -19,7 +19,7 @@ variable "app_port" {
 variable "root_volume_gb" {
   description = "Root EBS volume size in GB."
   type        = number
-  default     = 8
+  default     = 30
 }
 
 variable "allowed_ssh_cidr" {
@@ -32,4 +32,22 @@ variable "project_name" {
   description = "Name prefix used for tags and resource names."
   type        = string
   default     = "pickleball-open-play"
+}
+
+variable "duckdns_subdomain" {
+  description = "Your DuckDNS subdomain, without the .duckdns.org suffix (e.g. \"bereanpickleball\"). Caddy requests a free HTTPS certificate for <this>.duckdns.org."
+  type        = string
+  default     = "bereanpickleball"
+}
+
+variable "duckdns_token" {
+  description = "DuckDNS API token (shown at the top of duckdns.org once logged in). Used by a startup script to keep the domain pointed at this instance's current IP, since we deliberately don't use a static Elastic IP."
+  type        = string
+  sensitive   = true
+}
+
+variable "expose_app_port_directly" {
+  description = "Also open app_port to the internet directly, bypassing Caddy/HTTPS. Only useful for debugging — leave false normally."
+  type        = bool
+  default     = false
 }

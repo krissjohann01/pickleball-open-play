@@ -1,4 +1,4 @@
-import { createServer } from 'node:http'
+import { createServer, type IncomingMessage } from 'node:http'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, extname, join, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -43,6 +43,49 @@ function saveState(): void {
   if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true })
   writeFileSync(STATE_FILE, JSON.stringify(state, null, 2))
 }
+
+// --- Throttling ---
+// The app runs behind Caddy (see deploy/), which sets X-Forwarded-For to the
+// real client IP — the raw socket address would otherwise just be Caddy's own
+// loopback address for every connection.
+function getClientIp(req: IncomingMessage): string {
+  const forwarded = req.headers['x-forwarded-for']
+  const first = Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(',')[0]
+  return first?.trim() || req.socket.remoteAddress || 'unknown'
+}
+
+/** Fixed-window counter: allows up to `limit` calls per `windowMs`, then rejects until the window rolls over. */
+function createRateLimiter(limit: number, windowMs: number) {
+  let count = 0
+  let windowStart = Date.now()
+  return function allow(): boolean {
+    const now = Date.now()
+    if (now - windowStart >= windowMs) {
+      windowStart = now
+      count = 0
+    }
+    count++
+    return count <= limit
+  }
+}
+
+// A whole club session (50+ people) can realistically share one public IP —
+// shared venue Wi-Fi, or a mobile carrier's CGNAT. This only needs to catch
+// genuine abuse (thousands of sockets), not a big legitimate group.
+const MAX_WS_CONNECTIONS_PER_IP = 150
+const WS_MESSAGE_LIMIT = 20 // per-connection action rate: 20 messages / 5s (way above normal clicking speed)
+const WS_MESSAGE_WINDOW_MS = 5000
+// Same shared-IP reasoning as the WS cap above: a burst of 50 people loading
+// the page at once (each pulling ~5 small static files) can be a thousand+
+// requests in seconds from one IP — this only needs to catch a real flood.
+const HTTP_REQUEST_LIMIT = 1000
+const HTTP_REQUEST_WINDOW_MS = 60000
+
+const wsConnectionsByIp = new Map<string, number>()
+const httpLimitersByIp = new Map<string, () => boolean>()
+// Bound memory over a long uptime — each limiter is tiny, but without this the
+// map would grow by one entry per unique IP ever seen (e.g. bot scans) forever.
+setInterval(() => httpLimitersByIp.clear(), 60 * 60 * 1000).unref()
 
 const wss = new WebSocketServer({ noServer: true })
 const clients = new Set<WebSocket>()
@@ -117,11 +160,22 @@ function handleMessage(msg: any): void {
   broadcastState()
 }
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req: IncomingMessage) => {
+  const ip = getClientIp(req)
+  const currentConnections = wsConnectionsByIp.get(ip) ?? 0
+  if (currentConnections >= MAX_WS_CONNECTIONS_PER_IP) {
+    ws.close(1008, 'Too many connections from this address')
+    return
+  }
+  wsConnectionsByIp.set(ip, currentConnections + 1)
+
+  const allowMessage = createRateLimiter(WS_MESSAGE_LIMIT, WS_MESSAGE_WINDOW_MS)
+
   clients.add(ws)
   ws.send(JSON.stringify({ type: 'state', roster: state.roster, session: state.session }))
 
   ws.on('message', (data) => {
+    if (!allowMessage()) return // silently drop — well-behaved clients never hit this
     try {
       handleMessage(JSON.parse(data.toString()))
     } catch (err) {
@@ -129,7 +183,12 @@ wss.on('connection', (ws) => {
     }
   })
 
-  ws.on('close', () => clients.delete(ws))
+  ws.on('close', () => {
+    clients.delete(ws)
+    const remaining = (wsConnectionsByIp.get(ip) ?? 1) - 1
+    if (remaining <= 0) wsConnectionsByIp.delete(ip)
+    else wsConnectionsByIp.set(ip, remaining)
+  })
 })
 
 const MIME: Record<string, string> = {
@@ -143,6 +202,18 @@ const MIME: Record<string, string> = {
 }
 
 const server = createServer((req, res) => {
+  const ip = getClientIp(req)
+  let allowRequest = httpLimitersByIp.get(ip)
+  if (!allowRequest) {
+    allowRequest = createRateLimiter(HTTP_REQUEST_LIMIT, HTTP_REQUEST_WINDOW_MS)
+    httpLimitersByIp.set(ip, allowRequest)
+  }
+  if (!allowRequest()) {
+    res.writeHead(429, { 'Content-Type': 'text/plain', 'Retry-After': '30' })
+    res.end('Too many requests')
+    return
+  }
+
   const urlPath = (req.url ?? '/').split('?')[0]
   let filePath = normalize(join(DIST_DIR, urlPath === '/' ? 'index.html' : urlPath))
 
