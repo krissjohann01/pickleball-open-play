@@ -17,6 +17,10 @@ export default function SessionView({
   onAddNewPlayer,
   onTogglePause,
   onRenameCourt,
+  onExtendSession,
+  onAddCourt,
+  onRemoveCourt,
+  onUpdateSessionCost,
   onAddFoodOrder,
   onRemoveFoodOrder,
   onEndSession,
@@ -29,11 +33,17 @@ export default function SessionView({
   onAddNewPlayer: (player: Player) => void
   onTogglePause: (playerId: string, paused: boolean) => void
   onRenameCourt: (courtNumber: number, label: string) => void
+  onExtendSession: (additionalMinutes: number) => void
+  onAddCourt: () => void
+  onRemoveCourt: (courtNumber: number) => void
+  onUpdateSessionCost: (courtRentalTotal: number, entranceFeePerPerson: number) => void
   onAddFoodOrder: (playerId: string, description: string, amount: number) => void
   onRemoveFoodOrder: (playerId: string, orderId: string) => void
   onEndSession: () => void
 }) {
   const [now, setNow] = useState(Date.now())
+  const [showExtend, setShowExtend] = useState(false)
+  const [extendMinutes, setExtendMinutes] = useState('30')
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000)
@@ -82,6 +92,51 @@ export default function SessionView({
             {sessionOver ? 'Session time is up · ' : 'Time remaining: '}
             {formatDuration(remainingSeconds)}
           </p>
+          {isAdmin &&
+            (showExtend ? (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  const minutes = Math.max(0, Math.round(Number(extendMinutes) || 0))
+                  if (minutes > 0) onExtendSession(minutes)
+                  setShowExtend(false)
+                }}
+                className="mt-1 flex items-center gap-1"
+              >
+                <input
+                  autoFocus
+                  type="number"
+                  min="1"
+                  value={extendMinutes}
+                  onChange={(e) => setExtendMinutes(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') setShowExtend(false)
+                  }}
+                  className="w-20 rounded-md border border-slate-300 px-2 py-1 text-sm"
+                />
+                <span className="text-xs text-slate-500">min</span>
+                <button
+                  type="submit"
+                  className="rounded-md bg-emerald-600 px-2 py-1 text-xs font-medium text-white hover:bg-emerald-700"
+                >
+                  Add time
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowExtend(false)}
+                  className="text-xs text-slate-400 hover:text-slate-600"
+                >
+                  Cancel
+                </button>
+              </form>
+            ) : (
+              <button
+                onClick={() => setShowExtend(true)}
+                className="mt-1 text-xs font-medium text-emerald-700 hover:underline"
+              >
+                Extend session
+              </button>
+            ))}
         </div>
         <button
           onClick={onEndSession}
@@ -129,7 +184,7 @@ export default function SessionView({
             Tap <span className="font-medium text-slate-700">Next Game</span> on a court as soon as it
             finishes — courts don&apos;t need to wait on each other.
           </p>
-          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {session.courts.map((court) => (
               <CourtCard
                 key={court.courtNumber}
@@ -137,11 +192,22 @@ export default function SessionView({
                 players={playersById}
                 isAdmin={isAdmin}
                 canFill={canFillCourt(session, court.courtNumber)}
+                canRemove={session.courts.length > 1}
                 onNextGame={() => onNextGame(court.courtNumber)}
                 onRename={(label) => onRenameCourt(court.courtNumber, label)}
+                onRemove={() => onRemoveCourt(court.courtNumber)}
               />
             ))}
           </div>
+
+          {isAdmin && (
+            <button
+              onClick={onAddCourt}
+              className="mb-8 rounded-lg border border-dashed border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:border-emerald-400 hover:text-emerald-700"
+            >
+              + Add Court
+            </button>
+          )}
 
           {activeWaiting.length > 0 && (
             <div className="mb-6">
@@ -226,6 +292,8 @@ export default function SessionView({
             courtRentalTotal={session.courtRentalTotal}
             entranceFeePerPerson={session.entranceFeePerPerson}
             players={session.players}
+            isAdmin={isAdmin}
+            onUpdateCost={onUpdateSessionCost}
           />
 
           <FoodOrders

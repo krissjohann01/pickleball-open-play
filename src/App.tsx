@@ -129,6 +129,22 @@ export default function App() {
     send({ type: 'renameCourt', courtNumber, label })
   }
 
+  function extendSession(additionalMinutes: number) {
+    send({ type: 'extendSession', additionalMinutes })
+  }
+
+  function addCourt() {
+    send({ type: 'addCourt' })
+  }
+
+  function removeCourt(courtNumber: number) {
+    send({ type: 'removeCourt', courtNumber })
+  }
+
+  function updateSessionCost(courtRentalTotal: number, entranceFeePerPerson: number) {
+    send({ type: 'updateSessionCost', courtRentalTotal, entranceFeePerPerson })
+  }
+
   function addOrder(playerId: string, description: string, amount: number) {
     send({ type: 'addFoodOrder', playerId, description, amount })
   }
@@ -167,6 +183,10 @@ export default function App() {
         onAddNewPlayer={addNewPlayer}
         onTogglePause={togglePause}
         onRenameCourt={renameCourt}
+        onExtendSession={extendSession}
+        onAddCourt={addCourt}
+        onRemoveCourt={removeCourt}
+        onUpdateSessionCost={updateSessionCost}
         onAddFoodOrder={addOrder}
         onRemoveFoodOrder={removeOrder}
         onEndSession={endSession}

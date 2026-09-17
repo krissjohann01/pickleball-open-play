@@ -7,15 +7,19 @@ export default function CourtCard({
   players,
   isAdmin,
   canFill,
+  canRemove,
   onNextGame,
   onRename,
+  onRemove,
 }: {
   court: CourtSlot
   players: Map<string, SessionPlayer>
   isAdmin: boolean
   canFill: boolean
+  canRemove: boolean
   onNextGame: () => void
   onRename: (label: string) => void
+  onRemove: () => void
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(court.label)
@@ -29,6 +33,13 @@ export default function CourtCard({
     const trimmed = draft.trim()
     if (trimmed && trimmed !== court.label) onRename(trimmed)
     setEditing(false)
+  }
+
+  function handleRemove() {
+    const message = court.playerIds
+      ? `${court.label} has a game in progress. Remove it anyway? Those players will rejoin the waiting list.`
+      : `Remove ${court.label}?`
+    if (window.confirm(message)) onRemove()
   }
 
   return (
@@ -60,14 +71,26 @@ export default function CourtCard({
             <span className="font-normal normal-case text-slate-400">· Game {court.gamesOnCourt}</span>
           )}
           {isAdmin && (
-            <button
-              onClick={startEditing}
-              className="ml-auto text-xs font-normal normal-case text-slate-400 hover:text-slate-600"
-              title="Rename this court"
-              aria-label={`Rename ${court.label}`}
-            >
-              Rename
-            </button>
+            <span className="ml-auto flex items-center gap-2">
+              <button
+                onClick={startEditing}
+                className="text-xs font-normal normal-case text-slate-400 hover:text-slate-600"
+                title="Rename this court"
+                aria-label={`Rename ${court.label}`}
+              >
+                Rename
+              </button>
+              {canRemove && (
+                <button
+                  onClick={handleRemove}
+                  className="text-xs font-normal normal-case text-red-400 hover:text-red-600"
+                  title="Remove this court"
+                  aria-label={`Remove ${court.label}`}
+                >
+                  Remove
+                </button>
+              )}
+            </span>
           )}
         </h3>
       )}

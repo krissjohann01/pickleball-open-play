@@ -70,6 +70,8 @@ export default function SessionSummary({
         courtRentalTotal={session.courtRentalTotal}
         entranceFeePerPerson={session.entranceFeePerPerson}
         players={session.players}
+        isAdmin={false}
+        onUpdateCost={() => {}}
       />
 
       <FoodOrders

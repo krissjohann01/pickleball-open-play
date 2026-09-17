@@ -6,14 +6,18 @@ import { WebSocket, WebSocketServer } from 'ws'
 
 import type { Player, Session } from '../src/types.ts'
 import {
+  addCourt,
   addFoodOrder,
   addPlayerToSession,
   createSession,
   endSession,
+  extendSession,
   fillCourt,
+  removeCourt,
   removeFoodOrder,
   renameCourt,
   setPlayerPaused,
+  updateSessionCost,
 } from '../src/matchmaking.ts'
 import { buildSummaryMarkdown, summaryFilename } from '../src/fileExport.ts'
 
@@ -129,6 +133,10 @@ const ADMIN_ONLY_ACTIONS = new Set([
   'addFoodOrder',
   'removeFoodOrder',
   'renameCourt',
+  'extendSession',
+  'addCourt',
+  'removeCourt',
+  'updateSessionCost',
   'endSession',
   'closeSummary',
   'saveSummary',
@@ -195,6 +203,18 @@ function handleMessage(msg: any, ws: WebSocket, ip: string): void {
       break
     case 'renameCourt':
       if (state.session) state.session = renameCourt(state.session, msg.courtNumber, msg.label)
+      break
+    case 'extendSession':
+      if (state.session) state.session = extendSession(state.session, msg.additionalMinutes)
+      break
+    case 'addCourt':
+      if (state.session) state.session = addCourt(state.session)
+      break
+    case 'removeCourt':
+      if (state.session) state.session = removeCourt(state.session, msg.courtNumber)
+      break
+    case 'updateSessionCost':
+      if (state.session) state.session = updateSessionCost(state.session, msg.courtRentalTotal, msg.entranceFeePerPerson)
       break
     case 'addFoodOrder':
       if (state.session) state.session = addFoodOrder(state.session, msg.playerId, msg.description, msg.amount)

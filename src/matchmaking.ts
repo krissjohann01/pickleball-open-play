@@ -211,6 +211,38 @@ export function renameCourt(session: Session, courtNumber: number, label: string
   }
 }
 
+/** Extends the session's total duration — e.g. the venue lets the group stay longer. */
+export function extendSession(session: Session, additionalMinutes: number): Session {
+  if (additionalMinutes <= 0) return session
+  return { ...session, durationMinutes: session.durationMinutes + additionalMinutes }
+}
+
+/** Adds one more court mid-session (e.g. a rented court frees up). Starts empty —
+ * the admin fills it with "Start Game" like any newly opened court. */
+export function addCourt(session: Session): Session {
+  const nextCourtNumber =
+    session.courts.length > 0 ? Math.max(...session.courts.map((c) => c.courtNumber)) + 1 : 1
+  const newCourt = { courtNumber: nextCourtNumber, label: `Court ${nextCourtNumber}`, playerIds: null, gamesOnCourt: 0 }
+  return { ...session, numCourts: session.numCourts + 1, courts: [...session.courts, newCourt] }
+}
+
+/** Removes a specific court mid-session (e.g. a rented court is no longer available).
+ * Anyone currently playing on it simply rejoins the waiting pool. Always keeps at least one court. */
+export function removeCourt(session: Session, courtNumber: number): Session {
+  if (session.courts.length <= 1) return session
+  return {
+    ...session,
+    numCourts: session.numCourts - 1,
+    courts: session.courts.filter((c) => c.courtNumber !== courtNumber),
+  }
+}
+
+/** Updates the shared costs for the session — e.g. after adding a court or extending
+ * the time changes what the venue charges. */
+export function updateSessionCost(session: Session, courtRentalTotal: number, entranceFeePerPerson: number): Session {
+  return { ...session, courtRentalTotal, entranceFeePerPerson }
+}
+
 /** Marks the session ended — data stays so the summary can render, but no more games start. */
 export function endSession(session: Session): Session {
   return { ...session, endedAt: Date.now() }
