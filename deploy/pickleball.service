@@ -1,0 +1,18 @@
+[Unit]
+Description=Berean Pickleball Open Play
+After=network.target
+
+[Service]
+Type=simple
+# Adjust if you clone the repo somewhere other than the default ec2-user home.
+WorkingDirectory=/home/ec2-user/pickleball-open-play
+ExecStart=/usr/bin/npx tsx server/index.ts
+Restart=on-failure
+RestartSec=3
+User=ec2-user
+Environment=NODE_ENV=production
+# Uncomment to serve on port 80 directly (needs the setcap step in setup.sh):
+# Environment=PORT=80
+
+[Install]
+WantedBy=multi-user.target
