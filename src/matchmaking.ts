@@ -92,7 +92,9 @@ export function pickNextGroupForCourt(
 
 function applyCourtAssignment(session: Session, courtNumber: number, group: SessionPlayer[]): Session {
   const seq = session.turnCounter + 1
+  const court = session.courts.find((c) => c.courtNumber === courtNumber)
   const undo = {
+    previousPlayerIds: court?.playerIds ?? null,
     playerStats: group.map(({ id, gamesPlayed, lastPlayedSeq, partnerHistory }) => ({
       id,
       gamesPlayed,
@@ -137,12 +139,21 @@ export function canUndoCourt(session: Session, courtNumber: number): boolean {
 }
 
 /** Takes back a court's current group: they return to the waiting list as if
- * they never played (game counts and partner history rolled back) and the
- * court is left open. Nobody's paused status changes. */
+ * they never played (game counts and partner history rolled back), and the
+ * court's previous group is shown on it again — their games aren't counted
+ * twice. A previous player who has since gone onto another court or paused
+ * stays where they are, so undo never depends on other courts. */
 export function undoCourt(session: Session, courtNumber: number): Session {
   if (!canUndoCourt(session, courtNumber)) return session
   const court = session.courts.find((c) => c.courtNumber === courtNumber)!
   const statsById = new Map(court.undo!.playerStats.map((s) => [s.id, s]))
+  const busyElsewhere = new Set(
+    session.courts.filter((c) => c.courtNumber !== courtNumber).flatMap((c) => c.playerIds ?? []),
+  )
+  const pausedIds = new Set(session.players.filter((p) => p.paused).map((p) => p.id))
+  const restored = (court.undo!.previousPlayerIds ?? []).filter(
+    (id) => !busyElsewhere.has(id) && !pausedIds.has(id),
+  )
 
   const players = session.players.map((p) => {
     const stats = statsById.get(p.id)
@@ -150,7 +161,7 @@ export function undoCourt(session: Session, courtNumber: number): Session {
   })
   const courts = session.courts.map((c) =>
     c.courtNumber === courtNumber
-      ? { ...c, playerIds: null, gamesOnCourt: c.gamesOnCourt - 1, undo: null }
+      ? { ...c, playerIds: restored.length > 0 ? restored : null, gamesOnCourt: c.gamesOnCourt - 1, undo: null }
       : c,
   )
   return { ...session, players, courts }

@@ -47,6 +47,8 @@ export interface CourtSlot {
 }
 
 export interface CourtUndo {
+  /** Who was on the court before this pick — put back on undo. */
+  previousPlayerIds?: string[] | null
   /** The assigned group's stats from just before they were put on the court. */
   playerStats: Pick<SessionPlayer, 'id' | 'gamesPlayed' | 'lastPlayedSeq' | 'partnerHistory'>[]
 }
