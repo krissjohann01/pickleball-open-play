@@ -47,7 +47,6 @@ export interface CourtSlot {
 }
 
 export interface CourtUndo {
-  previousPlayerIds: string[] | null
   /** The assigned group's stats from just before they were put on the court. */
   playerStats: Pick<SessionPlayer, 'id' | 'gamesPlayed' | 'lastPlayedSeq' | 'partnerHistory'>[]
 }

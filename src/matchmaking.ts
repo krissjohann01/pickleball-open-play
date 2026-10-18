@@ -92,9 +92,7 @@ export function pickNextGroupForCourt(
 
 function applyCourtAssignment(session: Session, courtNumber: number, group: SessionPlayer[]): Session {
   const seq = session.turnCounter + 1
-  const court = session.courts.find((c) => c.courtNumber === courtNumber)
   const undo = {
-    previousPlayerIds: court?.playerIds ?? null,
     playerStats: group.map(({ id, gamesPlayed, lastPlayedSeq, partnerHistory }) => ({
       id,
       gamesPlayed,
@@ -131,44 +129,35 @@ export function fillCourt(session: Session, courtNumber: number): Session {
   return applyCourtAssignment(session, courtNumber, group)
 }
 
-/** Whether the court's last assignment can be undone — the players it replaced
- * must not have been put on another court since. */
+/** Whether the court's current group can be undone. Depends only on this court —
+ * what other courts have done since never blocks it. */
 export function canUndoCourt(session: Session, courtNumber: number): boolean {
   const court = session.courts.find((c) => c.courtNumber === courtNumber)
-  if (!court?.undo) return false
-  const busyElsewhere = new Set(
-    session.courts.filter((c) => c.courtNumber !== courtNumber).flatMap((c) => c.playerIds ?? []),
-  )
-  return !(court.undo.previousPlayerIds ?? []).some((id) => busyElsewhere.has(id))
+  return !!court?.playerIds && !!court.undo
 }
 
-/** Reverts a court's last assignment: the previous group goes back on the court
- * and the assigned group's game counts and partner history are rolled back. */
+/** Takes back a court's current group: they return to the waiting list as if
+ * they never played (game counts and partner history rolled back) and the
+ * court is left open. Nobody's paused status changes. */
 export function undoCourt(session: Session, courtNumber: number): Session {
   if (!canUndoCourt(session, courtNumber)) return session
   const court = session.courts.find((c) => c.courtNumber === courtNumber)!
-  const { previousPlayerIds, playerStats } = court.undo!
-  const statsById = new Map(playerStats.map((s) => [s.id, s]))
-  const restoredIds = new Set(previousPlayerIds ?? [])
+  const statsById = new Map(court.undo!.playerStats.map((s) => [s.id, s]))
 
   const players = session.players.map((p) => {
     const stats = statsById.get(p.id)
-    if (stats) return { ...p, ...stats }
-    // Anyone paused while waiting can't stay paused once they're back on a court.
-    if (restoredIds.has(p.id) && p.paused) return { ...p, paused: false }
-    return p
+    return stats ? { ...p, ...stats } : p
   })
   const courts = session.courts.map((c) =>
     c.courtNumber === courtNumber
-      ? { ...c, playerIds: previousPlayerIds, gamesOnCourt: c.gamesOnCourt - 1, undo: null }
+      ? { ...c, playerIds: null, gamesOnCourt: c.gamesOnCourt - 1, undo: null }
       : c,
   )
   return { ...session, players, courts }
 }
 
-/** Undoes a court's last assignment and picks a fresh group, preferring a
- * different set of players when fairness allows. Undo afterwards still returns
- * to the state before the original pick. */
+/** Undoes a court's current group and picks a fresh one, preferring a different
+ * set of players when fairness allows. */
 export function repickCourt(session: Session, courtNumber: number): Session {
   const court = session.courts.find((c) => c.courtNumber === courtNumber)
   if (!court?.playerIds || !canUndoCourt(session, courtNumber)) return session

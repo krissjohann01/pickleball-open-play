@@ -105,11 +105,32 @@ resource "aws_security_group" "this" {
   tags = { Name = "${var.project_name}-sg" }
 }
 
+# Lets AWS Systems Manager run commands on the instance — a deploy path for
+# networks that block SSH (see deploy/README.md).
+resource "aws_iam_role" "ssm" {
+  name = "${var.project_name}-ssm"
+  assume_role_policy = jsonencode({
+    Version   = "2012-10-17"
+    Statement = [{ Effect = "Allow", Principal = { Service = "ec2.amazonaws.com" }, Action = "sts:AssumeRole" }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ssm" {
+  role       = aws_iam_role.ssm.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+resource "aws_iam_instance_profile" "ssm" {
+  name = "${var.project_name}-ssm"
+  role = aws_iam_role.ssm.name
+}
+
 resource "aws_instance" "this" {
   ami                    = data.aws_ami.amazon_linux.id
   instance_type          = var.instance_type
   key_name               = aws_key_pair.this.key_name
   vpc_security_group_ids = [aws_security_group.this.id]
+  iam_instance_profile   = aws_iam_instance_profile.ssm.name
 
   root_block_device {
     volume_size = var.root_volume_gb

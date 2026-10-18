@@ -147,7 +147,7 @@ export default function CourtCard({
           })}
         </ul>
       ) : (
-        <p className="mb-3 text-sm text-slate-400">Not started yet.</p>
+        <p className="mb-3 text-sm text-slate-400">{court.gamesOnCourt > 0 ? 'Open — ready for the next game.' : 'Not started yet.'}</p>
       )}
 
       <button
@@ -212,7 +212,7 @@ export default function CourtCard({
           <button
             onClick={onUndo}
             className="flex-1 rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
-            title="Put the previous players back and roll back this pick"
+            title="Send these players back to the waiting list as if they never played"
           >
             Undo
           </button>
