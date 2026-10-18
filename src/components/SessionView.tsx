@@ -200,6 +200,7 @@ export default function SessionView({
                 canFill={canFillCourt(session, court.courtNumber)}
                 canRepick={canRepickCourt(session, court.courtNumber)}
                 lockSecondsLeft={Math.ceil(nextGameLockRemaining(session, court.courtNumber, now + clockOffset) / 1000)}
+                gameSecondsElapsed={court.assignedAt ? (now + clockOffset - court.assignedAt) / 1000 : null}
                 canRemove={session.courts.length > 1}
                 onNextGame={() => onNextGame(court.courtNumber)}
                 choosablePlayers={getEligiblePool(session, court.courtNumber)}

@@ -3,6 +3,10 @@ import type { CourtSlot, SessionPlayer } from '../types'
 import { PLAYERS_PER_COURT } from '../matchmaking'
 import PlayerBadge from './PlayerBadge'
 
+/** A game that started more recently than this is probably still being played,
+ * so "Next Game" asks for confirmation before ending it. */
+const CONFIRM_NEXT_GAME_WITHIN_SECONDS = 5 * 60
+
 export default function CourtCard({
   court,
   players,
@@ -10,6 +14,7 @@ export default function CourtCard({
   canFill,
   canRepick,
   lockSecondsLeft,
+  gameSecondsElapsed,
   canRemove,
   onNextGame,
   choosablePlayers,
@@ -25,6 +30,8 @@ export default function CourtCard({
   canRepick: boolean
   /** Seconds until "Next Game" unlocks after the current game started (0 = unlocked). */
   lockSecondsLeft: number
+  /** How long the current game has been running, or null if unknown / not started. */
+  gameSecondsElapsed: number | null
   canRemove: boolean
   onNextGame: () => void
   choosablePlayers: SessionPlayer[]
@@ -67,6 +74,25 @@ export default function CourtCard({
     const trimmed = draft.trim()
     if (trimmed && trimmed !== court.label) onRename(trimmed)
     setEditing(false)
+  }
+
+  function handleNextGame() {
+    // Only ask when the current game looks like it's still going — late taps are routine.
+    const recent = court.playerIds && (gameSecondsElapsed === null || gameSecondsElapsed < CONFIRM_NEXT_GAME_WITHIN_SECONDS)
+    if (recent) {
+      const minutes = gameSecondsElapsed === null ? null : Math.floor(gameSecondsElapsed / 60)
+      const started =
+        minutes === null ? '' : minutes < 1 ? ' It started less than a minute ago.' : ` It started ${minutes} min ago.`
+      const message = `End the game on ${court.label}?${started}\n\nThe current players go back to the waiting list and a new group goes on.`
+      if (!window.confirm(message)) return
+    }
+    onNextGame()
+  }
+
+  function handleRepick() {
+    if (window.confirm(`Re-pick ${court.label}? The current players go back to the waiting list as if they never played, and a different group goes on.`)) {
+      onRepick()
+    }
   }
 
   function handleRemove() {
@@ -152,7 +178,7 @@ export default function CourtCard({
       )}
 
       <button
-        onClick={onNextGame}
+        onClick={handleNextGame}
         disabled={!isAdmin || !canFill || lockSecondsLeft > 0}
         className="w-full rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300"
       >
@@ -213,7 +239,7 @@ export default function CourtCard({
       {isAdmin && canRepick && !choosing && (
         <div className="mt-2 flex gap-2">
           <button
-            onClick={onRepick}
+            onClick={handleRepick}
             className="flex-1 rounded-lg border border-emerald-300 px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50"
             title="Discard this pick and choose a different group"
           >
