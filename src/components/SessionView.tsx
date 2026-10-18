@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Player, Session } from '../types'
-import { canFillCourt, canUndoCourt, getEligiblePool } from '../matchmaking'
+import { canFillCourt, canRepickCourt, getEligiblePool, nextGameLockRemaining } from '../matchmaking'
 import { formatDuration } from '../format'
 import AddLatePlayer from './AddLatePlayer'
 import CostSplit from './CostSplit'
@@ -12,8 +12,8 @@ export default function SessionView({
   session,
   roster,
   isAdmin,
+  clockOffset,
   onNextGame,
-  onUndoCourt,
   onRepickCourt,
   onRepickCourtWith,
   onAddExistingPlayer,
@@ -31,8 +31,8 @@ export default function SessionView({
   session: Session
   roster: Player[]
   isAdmin: boolean
+  clockOffset: number
   onNextGame: (courtNumber: number) => void
-  onUndoCourt: (courtNumber: number) => void
   onRepickCourt: (courtNumber: number) => void
   onRepickCourtWith: (courtNumber: number, playerIds: string[]) => void
   onAddExistingPlayer: (player: Player) => void
@@ -198,10 +198,10 @@ export default function SessionView({
                 players={playersById}
                 isAdmin={isAdmin}
                 canFill={canFillCourt(session, court.courtNumber)}
-                canUndo={canUndoCourt(session, court.courtNumber)}
+                canRepick={canRepickCourt(session, court.courtNumber)}
+                lockSecondsLeft={Math.ceil(nextGameLockRemaining(session, court.courtNumber, now + clockOffset) / 1000)}
                 canRemove={session.courts.length > 1}
                 onNextGame={() => onNextGame(court.courtNumber)}
-                onUndo={() => onUndoCourt(court.courtNumber)}
                 choosablePlayers={getEligiblePool(session, court.courtNumber)}
                 onRepick={() => onRepickCourt(court.courtNumber)}
                 onRepickWith={(playerIds) => onRepickCourtWith(court.courtNumber, playerIds)}

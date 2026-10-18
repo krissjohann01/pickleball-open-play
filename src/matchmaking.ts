@@ -90,11 +90,19 @@ export function pickNextGroupForCourt(
   return best
 }
 
+/** How long "Next Game" stays locked on a court after it gets a new group. */
+export const NEXT_GAME_LOCK_MS = 2 * 60 * 1000
+
+/** Milliseconds until "Next Game" unlocks on this court (0 = available now). */
+export function nextGameLockRemaining(session: Session, courtNumber: number, now = Date.now()): number {
+  const court = session.courts.find((c) => c.courtNumber === courtNumber)
+  if (!court?.playerIds || !court.assignedAt) return 0
+  return Math.max(0, court.assignedAt + NEXT_GAME_LOCK_MS - now)
+}
+
 function applyCourtAssignment(session: Session, courtNumber: number, group: SessionPlayer[]): Session {
   const seq = session.turnCounter + 1
-  const court = session.courts.find((c) => c.courtNumber === courtNumber)
-  const undo = {
-    previousPlayerIds: court?.playerIds ?? null,
+  const repick = {
     playerStats: group.map(({ id, gamesPlayed, lastPlayedSeq, partnerHistory }) => ({
       id,
       gamesPlayed,
@@ -117,79 +125,71 @@ function applyCourtAssignment(session: Session, courtNumber: number, group: Sess
 
   const courts = session.courts.map((c) =>
     c.courtNumber === courtNumber
-      ? { ...c, playerIds: group.map((p) => p.id), gamesOnCourt: c.gamesOnCourt + 1, undo }
+      ? {
+          ...c,
+          playerIds: group.map((p) => p.id),
+          gamesOnCourt: c.gamesOnCourt + 1,
+          assignedAt: Date.now(),
+          repick,
+        }
       : c,
   )
 
   return { ...session, players, courts, turnCounter: seq }
 }
 
-/** Starts the next game on one specific court. No-op if not enough players are waiting. */
+/** Starts the next game on one specific court. No-op if not enough players are
+ * waiting, or if the court's current game started too recently (a double tap). */
 export function fillCourt(session: Session, courtNumber: number): Session {
+  if (nextGameLockRemaining(session, courtNumber) > 0) return session
   const group = pickNextGroupForCourt(session, courtNumber)
   if (!group) return session
   return applyCourtAssignment(session, courtNumber, group)
 }
 
-/** Whether the court's current group can be undone. Depends only on this court —
- * what other courts have done since never blocks it. */
-export function canUndoCourt(session: Session, courtNumber: number): boolean {
+/** Whether the court's current group can be swapped out via Re-pick/Choose. */
+export function canRepickCourt(session: Session, courtNumber: number): boolean {
   const court = session.courts.find((c) => c.courtNumber === courtNumber)
-  return !!court?.playerIds && !!court.undo
+  return !!court?.playerIds && !!court.repick
 }
 
-/** Takes back a court's current group: they return to the waiting list as if
- * they never played (game counts and partner history rolled back), and the
- * court's previous group is shown on it again — their games aren't counted
- * twice. A previous player who has since gone onto another court or paused
- * stays where they are, so undo never depends on other courts. */
-export function undoCourt(session: Session, courtNumber: number): Session {
-  if (!canUndoCourt(session, courtNumber)) return session
+/** Takes the court's current group off as if they never played (game counts and
+ * partner history rolled back), leaving the court empty for a replacement pick. */
+function releaseCourt(session: Session, courtNumber: number): Session {
   const court = session.courts.find((c) => c.courtNumber === courtNumber)!
-  const statsById = new Map(court.undo!.playerStats.map((s) => [s.id, s]))
-  const busyElsewhere = new Set(
-    session.courts.filter((c) => c.courtNumber !== courtNumber).flatMap((c) => c.playerIds ?? []),
-  )
-  const pausedIds = new Set(session.players.filter((p) => p.paused).map((p) => p.id))
-  const restored = (court.undo!.previousPlayerIds ?? []).filter(
-    (id) => !busyElsewhere.has(id) && !pausedIds.has(id),
-  )
-
+  const statsById = new Map(court.repick!.playerStats.map((s) => [s.id, s]))
   const players = session.players.map((p) => {
     const stats = statsById.get(p.id)
     return stats ? { ...p, ...stats } : p
   })
   const courts = session.courts.map((c) =>
-    c.courtNumber === courtNumber
-      ? { ...c, playerIds: restored.length > 0 ? restored : null, gamesOnCourt: c.gamesOnCourt - 1, undo: null }
-      : c,
+    c.courtNumber === courtNumber ? { ...c, playerIds: null, gamesOnCourt: c.gamesOnCourt - 1, repick: null } : c,
   )
   return { ...session, players, courts }
 }
 
-/** Undoes a court's current group and picks a fresh one, preferring a different
- * set of players when fairness allows. */
+/** Swaps the court's current group for a fresh pick, preferring a different set
+ * of players when fairness allows. */
 export function repickCourt(session: Session, courtNumber: number): Session {
   const court = session.courts.find((c) => c.courtNumber === courtNumber)
-  if (!court?.playerIds || !canUndoCourt(session, courtNumber)) return session
-  const undone = undoCourt(session, courtNumber)
-  const group = pickNextGroupForCourt(undone, courtNumber, new Set(court.playerIds))
+  if (!court?.playerIds || !canRepickCourt(session, courtNumber)) return session
+  const released = releaseCourt(session, courtNumber)
+  const group = pickNextGroupForCourt(released, courtNumber, new Set(court.playerIds))
   if (!group) return session
-  return applyCourtAssignment(undone, courtNumber, group)
+  return applyCourtAssignment(released, courtNumber, group)
 }
 
-/** Undoes a court's last assignment and puts the organizer's hand-picked group
- * on instead. No-op unless exactly four distinct, unpaused players are chosen
- * and none of them is on another court. */
+/** Swaps the court's current group for the organizer's hand-picked one. No-op
+ * unless exactly four distinct, unpaused players are chosen and none of them is
+ * on another court. */
 export function repickCourtWith(session: Session, courtNumber: number, playerIds: string[]): Session {
-  const court = session.courts.find((c) => c.courtNumber === courtNumber)
-  if (!court?.playerIds || !canUndoCourt(session, courtNumber)) return session
+  if (!canRepickCourt(session, courtNumber)) return session
   if (new Set(playerIds).size !== PLAYERS_PER_COURT || playerIds.length !== PLAYERS_PER_COURT) return session
-  const undone = undoCourt(session, courtNumber)
-  const eligibleById = new Map(getEligiblePool(undone, courtNumber).map((p) => [p.id, p]))
+  const released = releaseCourt(session, courtNumber)
+  const eligibleById = new Map(getEligiblePool(released, courtNumber).map((p) => [p.id, p]))
   const group = playerIds.map((id) => eligibleById.get(id))
   if (group.some((p) => !p)) return session
-  return applyCourtAssignment(undone, courtNumber, group as SessionPlayer[])
+  return applyCourtAssignment(released, courtNumber, group as SessionPlayer[])
 }
 
 /** Fills every court that doesn't have a game running yet, one at a time so

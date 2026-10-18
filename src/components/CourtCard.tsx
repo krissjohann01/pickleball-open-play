@@ -8,10 +8,10 @@ export default function CourtCard({
   players,
   isAdmin,
   canFill,
-  canUndo,
+  canRepick,
+  lockSecondsLeft,
   canRemove,
   onNextGame,
-  onUndo,
   choosablePlayers,
   onRepick,
   onRepickWith,
@@ -22,10 +22,11 @@ export default function CourtCard({
   players: Map<string, SessionPlayer>
   isAdmin: boolean
   canFill: boolean
-  canUndo: boolean
+  canRepick: boolean
+  /** Seconds until "Next Game" unlocks after the current game started (0 = unlocked). */
+  lockSecondsLeft: number
   canRemove: boolean
   onNextGame: () => void
-  onUndo: () => void
   choosablePlayers: SessionPlayer[]
   onRepick: () => void
   onRepickWith: (playerIds: string[]) => void
@@ -147,17 +148,19 @@ export default function CourtCard({
           })}
         </ul>
       ) : (
-        <p className="mb-3 text-sm text-slate-400">{court.gamesOnCourt > 0 ? 'Open — ready for the next game.' : 'Not started yet.'}</p>
+        <p className="mb-3 text-sm text-slate-400">Not started yet.</p>
       )}
 
       <button
         onClick={onNextGame}
-        disabled={!isAdmin || !canFill}
+        disabled={!isAdmin || !canFill || lockSecondsLeft > 0}
         className="w-full rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300"
       >
         {court.playerIds ? 'Next Game' : 'Start Game'}
+        {lockSecondsLeft > 0 &&
+          ` (${Math.floor(lockSecondsLeft / 60)}:${String(lockSecondsLeft % 60).padStart(2, '0')})`}
       </button>
-      {isAdmin && canUndo && choosing && court.playerIds && (
+      {isAdmin && canRepick && choosing && court.playerIds && (
         <div className="mt-2 rounded-lg border border-slate-200 p-2">
           <p className="mb-1 text-xs text-slate-500">
             Choose {PLAYERS_PER_COURT} players ({chosenIds.length}/{PLAYERS_PER_COURT})
@@ -207,39 +210,31 @@ export default function CourtCard({
           </div>
         </div>
       )}
-      {isAdmin && canUndo && !choosing && (
+      {isAdmin && canRepick && !choosing && (
         <div className="mt-2 flex gap-2">
           <button
-            onClick={onUndo}
-            className="flex-1 rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
-            title="Send these players back to the waiting list as if they never played"
+            onClick={onRepick}
+            className="flex-1 rounded-lg border border-emerald-300 px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50"
+            title="Discard this pick and choose a different group"
           >
-            Undo
+            Re-pick
           </button>
-          {court.playerIds && (
-            <button
-              onClick={onRepick}
-              className="flex-1 rounded-lg border border-emerald-300 px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50"
-              title="Discard this pick and choose a different group"
-            >
-              Re-pick
-            </button>
-          )}
-          {court.playerIds && (
-            <button
-              onClick={startChoosing}
-              className="flex-1 rounded-lg border border-emerald-300 px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50"
-              title="Discard this pick and choose the players yourself"
-            >
-              Choose
-            </button>
-          )}
+          <button
+            onClick={startChoosing}
+            className="flex-1 rounded-lg border border-emerald-300 px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50"
+            title="Discard this pick and choose the players yourself"
+          >
+            Choose
+          </button>
         </div>
       )}
       {!isAdmin ? (
         <p className="mt-1 text-center text-xs text-slate-400">Admin login required</p>
       ) : (
-        !canFill && <p className="mt-1 text-center text-xs text-slate-400">Waiting for more players</p>
+        (!canFill && <p className="mt-1 text-center text-xs text-slate-400">Waiting for more players</p>) ||
+        (lockSecondsLeft > 0 && (
+          <p className="mt-1 text-center text-xs text-slate-400">Locked briefly so it can&apos;t be tapped twice</p>
+        ))
       )}
     </div>
   )

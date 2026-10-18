@@ -19,6 +19,9 @@ export default function App() {
   const [roster, setRoster] = useState<Player[] | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [localView, setLocalView] = useState<LocalView>('roster')
+  // Server clock minus this device's clock — keeps lock countdowns in step with
+  // what the server enforces even if a phone's clock is off.
+  const [clockOffset, setClockOffset] = useState(0)
   const [saveStatus, setSaveStatus] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [adminError, setAdminError] = useState<string | null>(null)
@@ -48,6 +51,7 @@ export default function App() {
         if (msg.type === 'state') {
           setRoster(msg.roster)
           setSession(msg.session)
+          if (typeof msg.serverTime === 'number') setClockOffset(msg.serverTime - Date.now())
         } else if (msg.type === 'summarySaved') {
           setSaveStatus(`Saved ${msg.filename} to the sessions folder.`)
         } else if (msg.type === 'adminStatus') {
@@ -111,10 +115,6 @@ export default function App() {
 
   function nextGame(courtNumber: number) {
     send({ type: 'nextGame', courtNumber })
-  }
-
-  function undoCourt(courtNumber: number) {
-    send({ type: 'undoCourt', courtNumber })
   }
 
   function repickCourt(courtNumber: number) {
@@ -190,8 +190,8 @@ export default function App() {
         session={session}
         roster={roster}
         isAdmin={isAdmin}
+        clockOffset={clockOffset}
         onNextGame={nextGame}
-        onUndoCourt={undoCourt}
         onRepickCourt={repickCourt}
         onRepickCourtWith={repickCourtWith}
         onAddExistingPlayer={addExistingPlayer}

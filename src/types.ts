@@ -41,14 +41,15 @@ export interface CourtSlot {
   /** null until the court's first game is generated. */
   playerIds: string[] | null
   gamesOnCourt: number
-  /** Snapshot taken when the court's current game was assigned, so the organizer
-   * can undo or re-pick it. Cleared once used; absent on courts never filled. */
-  undo?: CourtUndo | null
+  /** When the court's current group was put on (ms epoch). "Next Game" stays
+   * locked for a short while after, so a double tap can't skip a game. */
+  assignedAt?: number
+  /** Snapshot of the current group's stats from just before they were put on,
+   * so Re-pick/Choose can swap them out as if they never played. */
+  repick?: CourtRepick | null
 }
 
-export interface CourtUndo {
-  /** Who was on the court before this pick — put back on undo. */
-  previousPlayerIds?: string[] | null
+export interface CourtRepick {
   /** The assigned group's stats from just before they were put on the court. */
   playerStats: Pick<SessionPlayer, 'id' | 'gamesPlayed' | 'lastPlayedSeq' | 'partnerHistory'>[]
 }

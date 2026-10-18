@@ -19,7 +19,6 @@ import {
   repickCourt,
   repickCourtWith,
   setPlayerPaused,
-  undoCourt,
   updateSessionCost,
 } from '../src/matchmaking.ts'
 import { buildSummaryMarkdown, summaryFilename } from '../src/fileExport.ts'
@@ -122,7 +121,7 @@ function broadcast(message: unknown): void {
 }
 
 function broadcastState(): void {
-  broadcast({ type: 'state', roster: state.roster, session: state.session })
+  broadcast({ type: 'state', roster: state.roster, session: state.session, serverTime: Date.now() })
 }
 
 // Actions that control or advance a session are admin-only. Roster
@@ -130,7 +129,6 @@ function broadcastState(): void {
 const ADMIN_ONLY_ACTIONS = new Set([
   'startSession',
   'nextGame',
-  'undoCourt',
   'repickCourt',
   'repickCourtWith',
   'addExistingPlayer',
@@ -194,9 +192,6 @@ function handleMessage(msg: any, ws: WebSocket, ip: string): void {
       break
     case 'nextGame':
       if (state.session) state.session = fillCourt(state.session, msg.courtNumber)
-      break
-    case 'undoCourt':
-      if (state.session) state.session = undoCourt(state.session, msg.courtNumber)
       break
     case 'repickCourt':
       if (state.session) state.session = repickCourt(state.session, msg.courtNumber)
@@ -274,7 +269,7 @@ wss.on('connection', (ws, req: IncomingMessage) => {
   const allowMessage = createRateLimiter(WS_MESSAGE_LIMIT, WS_MESSAGE_WINDOW_MS)
 
   clients.add(ws)
-  ws.send(JSON.stringify({ type: 'state', roster: state.roster, session: state.session }))
+  ws.send(JSON.stringify({ type: 'state', roster: state.roster, session: state.session, serverTime: Date.now() }))
 
   ws.on('message', (data) => {
     if (!allowMessage()) return // silently drop — well-behaved clients never hit this
