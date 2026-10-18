@@ -16,7 +16,10 @@ import {
   removeCourt,
   removeFoodOrder,
   renameCourt,
+  repickCourt,
+  repickCourtWith,
   setPlayerPaused,
+  undoCourt,
   updateSessionCost,
 } from '../src/matchmaking.ts'
 import { buildSummaryMarkdown, summaryFilename } from '../src/fileExport.ts'
@@ -127,6 +130,9 @@ function broadcastState(): void {
 const ADMIN_ONLY_ACTIONS = new Set([
   'startSession',
   'nextGame',
+  'undoCourt',
+  'repickCourt',
+  'repickCourtWith',
   'addExistingPlayer',
   'addNewPlayer',
   'togglePause',
@@ -188,6 +194,17 @@ function handleMessage(msg: any, ws: WebSocket, ip: string): void {
       break
     case 'nextGame':
       if (state.session) state.session = fillCourt(state.session, msg.courtNumber)
+      break
+    case 'undoCourt':
+      if (state.session) state.session = undoCourt(state.session, msg.courtNumber)
+      break
+    case 'repickCourt':
+      if (state.session) state.session = repickCourt(state.session, msg.courtNumber)
+      break
+    case 'repickCourtWith':
+      if (state.session && Array.isArray(msg.playerIds)) {
+        state.session = repickCourtWith(state.session, msg.courtNumber, msg.playerIds)
+      }
       break
     case 'addExistingPlayer':
       if (state.session) state.session = addPlayerToSession(state.session, msg.player)

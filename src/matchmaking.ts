@@ -1,7 +1,7 @@
 import type { Player, Session, SessionPlayer } from './types'
 import { generateId } from './id'
 
-const PLAYERS_PER_COURT = 4
+export const PLAYERS_PER_COURT = 4
 const VARIETY_ATTEMPTS = 25
 
 function shuffle<T>(items: T[]): T[] {
@@ -26,7 +26,7 @@ export function getWaitingPool(session: Session, courtNumber: number): SessionPl
 }
 
 /** Waiting players eligible to be picked for the next game — excludes anyone paused. */
-function getEligiblePool(session: Session, courtNumber: number): SessionPlayer[] {
+export function getEligiblePool(session: Session, courtNumber: number): SessionPlayer[] {
   return getWaitingPool(session, courtNumber).filter((p) => !p.paused)
 }
 
@@ -34,9 +34,14 @@ export function canFillCourt(session: Session, courtNumber: number): boolean {
   return getEligiblePool(session, courtNumber).length >= PLAYERS_PER_COURT
 }
 
-/** Lower is better: penalizes repeat partners and an all-one-level group. */
-function scoreGroup(group: SessionPlayer[]): number {
-  let score = 0
+function isSameGroup(group: SessionPlayer[], ids: Set<string>): boolean {
+  return group.length === ids.size && group.every((p) => ids.has(p.id))
+}
+
+/** Lower is better: penalizes repeat partners and an all-one-level group, and
+ * heavily penalizes repeating the exact group being re-picked (`avoid`). */
+function scoreGroup(group: SessionPlayer[], avoid?: Set<string>): number {
+  let score = avoid && isSameGroup(group, avoid) ? 1000 : 0
   for (let i = 0; i < group.length; i++) {
     for (let j = i + 1; j < group.length; j++) {
       if (group[i].partnerHistory.includes(group[j].id)) score += 10
@@ -51,9 +56,14 @@ function scoreGroup(group: SessionPlayer[]): number {
  * fairness (fewest games played, then longest since they last played) above
  * all else. Only among players *tied* on that fairness ranking does it pick
  * the specific combination that best mixes skill levels and avoids repeat
- * partners.
+ * partners. `avoid` (when re-picking) steers away from that exact group if the
+ * fairness ranking leaves any alternative.
  */
-export function pickNextGroupForCourt(session: Session, courtNumber: number): SessionPlayer[] | null {
+export function pickNextGroupForCourt(
+  session: Session,
+  courtNumber: number,
+  avoid?: Set<string>,
+): SessionPlayer[] | null {
   const waiting = getEligiblePool(session, courtNumber)
   if (waiting.length < PLAYERS_PER_COURT) return null
 
@@ -68,10 +78,10 @@ export function pickNextGroupForCourt(session: Session, courtNumber: number): Se
   const slotsRemaining = PLAYERS_PER_COURT - mustPlay.length
 
   let best = [...mustPlay, ...tiedAtCutoff.slice(0, slotsRemaining)]
-  let bestScore = scoreGroup(best)
+  let bestScore = scoreGroup(best, avoid)
   for (let attempt = 0; attempt < VARIETY_ATTEMPTS && bestScore > 0; attempt++) {
     const candidate = [...mustPlay, ...shuffle(tiedAtCutoff).slice(0, slotsRemaining)]
-    const score = scoreGroup(candidate)
+    const score = scoreGroup(candidate, avoid)
     if (score < bestScore) {
       bestScore = score
       best = candidate
@@ -82,6 +92,16 @@ export function pickNextGroupForCourt(session: Session, courtNumber: number): Se
 
 function applyCourtAssignment(session: Session, courtNumber: number, group: SessionPlayer[]): Session {
   const seq = session.turnCounter + 1
+  const court = session.courts.find((c) => c.courtNumber === courtNumber)
+  const undo = {
+    previousPlayerIds: court?.playerIds ?? null,
+    playerStats: group.map(({ id, gamesPlayed, lastPlayedSeq, partnerHistory }) => ({
+      id,
+      gamesPlayed,
+      lastPlayedSeq,
+      partnerHistory,
+    })),
+  }
   const groupIds = new Set(group.map((p) => p.id))
   const partnersById = new Map(group.map((p) => [p.id, group.filter((o) => o.id !== p.id).map((o) => o.id)]))
 
@@ -97,7 +117,7 @@ function applyCourtAssignment(session: Session, courtNumber: number, group: Sess
 
   const courts = session.courts.map((c) =>
     c.courtNumber === courtNumber
-      ? { ...c, playerIds: group.map((p) => p.id), gamesOnCourt: c.gamesOnCourt + 1 }
+      ? { ...c, playerIds: group.map((p) => p.id), gamesOnCourt: c.gamesOnCourt + 1, undo }
       : c,
   )
 
@@ -109,6 +129,67 @@ export function fillCourt(session: Session, courtNumber: number): Session {
   const group = pickNextGroupForCourt(session, courtNumber)
   if (!group) return session
   return applyCourtAssignment(session, courtNumber, group)
+}
+
+/** Whether the court's last assignment can be undone — the players it replaced
+ * must not have been put on another court since. */
+export function canUndoCourt(session: Session, courtNumber: number): boolean {
+  const court = session.courts.find((c) => c.courtNumber === courtNumber)
+  if (!court?.undo) return false
+  const busyElsewhere = new Set(
+    session.courts.filter((c) => c.courtNumber !== courtNumber).flatMap((c) => c.playerIds ?? []),
+  )
+  return !(court.undo.previousPlayerIds ?? []).some((id) => busyElsewhere.has(id))
+}
+
+/** Reverts a court's last assignment: the previous group goes back on the court
+ * and the assigned group's game counts and partner history are rolled back. */
+export function undoCourt(session: Session, courtNumber: number): Session {
+  if (!canUndoCourt(session, courtNumber)) return session
+  const court = session.courts.find((c) => c.courtNumber === courtNumber)!
+  const { previousPlayerIds, playerStats } = court.undo!
+  const statsById = new Map(playerStats.map((s) => [s.id, s]))
+  const restoredIds = new Set(previousPlayerIds ?? [])
+
+  const players = session.players.map((p) => {
+    const stats = statsById.get(p.id)
+    if (stats) return { ...p, ...stats }
+    // Anyone paused while waiting can't stay paused once they're back on a court.
+    if (restoredIds.has(p.id) && p.paused) return { ...p, paused: false }
+    return p
+  })
+  const courts = session.courts.map((c) =>
+    c.courtNumber === courtNumber
+      ? { ...c, playerIds: previousPlayerIds, gamesOnCourt: c.gamesOnCourt - 1, undo: null }
+      : c,
+  )
+  return { ...session, players, courts }
+}
+
+/** Undoes a court's last assignment and picks a fresh group, preferring a
+ * different set of players when fairness allows. Undo afterwards still returns
+ * to the state before the original pick. */
+export function repickCourt(session: Session, courtNumber: number): Session {
+  const court = session.courts.find((c) => c.courtNumber === courtNumber)
+  if (!court?.playerIds || !canUndoCourt(session, courtNumber)) return session
+  const undone = undoCourt(session, courtNumber)
+  const group = pickNextGroupForCourt(undone, courtNumber, new Set(court.playerIds))
+  if (!group) return session
+  return applyCourtAssignment(undone, courtNumber, group)
+}
+
+/** Undoes a court's last assignment and puts the organizer's hand-picked group
+ * on instead. No-op unless exactly four distinct, unpaused players are chosen
+ * and none of them is on another court. */
+export function repickCourtWith(session: Session, courtNumber: number, playerIds: string[]): Session {
+  const court = session.courts.find((c) => c.courtNumber === courtNumber)
+  if (!court?.playerIds || !canUndoCourt(session, courtNumber)) return session
+  if (new Set(playerIds).size !== PLAYERS_PER_COURT || playerIds.length !== PLAYERS_PER_COURT) return session
+  const undone = undoCourt(session, courtNumber)
+  const eligibleById = new Map(getEligiblePool(undone, courtNumber).map((p) => [p.id, p]))
+  const group = playerIds.map((id) => eligibleById.get(id))
+  if (group.some((p) => !p)) return session
+  return applyCourtAssignment(undone, courtNumber, group as SessionPlayer[])
 }
 
 /** Fills every court that doesn't have a game running yet, one at a time so

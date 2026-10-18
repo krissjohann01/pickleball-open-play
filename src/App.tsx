@@ -113,6 +113,18 @@ export default function App() {
     send({ type: 'nextGame', courtNumber })
   }
 
+  function undoCourt(courtNumber: number) {
+    send({ type: 'undoCourt', courtNumber })
+  }
+
+  function repickCourt(courtNumber: number) {
+    send({ type: 'repickCourt', courtNumber })
+  }
+
+  function repickCourtWith(courtNumber: number, playerIds: string[]) {
+    send({ type: 'repickCourtWith', courtNumber, playerIds })
+  }
+
   function addExistingPlayer(player: Player) {
     send({ type: 'addExistingPlayer', player })
   }
@@ -179,6 +191,9 @@ export default function App() {
         roster={roster}
         isAdmin={isAdmin}
         onNextGame={nextGame}
+        onUndoCourt={undoCourt}
+        onRepickCourt={repickCourt}
+        onRepickCourtWith={repickCourtWith}
         onAddExistingPlayer={addExistingPlayer}
         onAddNewPlayer={addNewPlayer}
         onTogglePause={togglePause}

@@ -41,6 +41,15 @@ export interface CourtSlot {
   /** null until the court's first game is generated. */
   playerIds: string[] | null
   gamesOnCourt: number
+  /** Snapshot taken when the court's current game was assigned, so the organizer
+   * can undo or re-pick it. Cleared once used; absent on courts never filled. */
+  undo?: CourtUndo | null
+}
+
+export interface CourtUndo {
+  previousPlayerIds: string[] | null
+  /** The assigned group's stats from just before they were put on the court. */
+  playerStats: Pick<SessionPlayer, 'id' | 'gamesPlayed' | 'lastPlayedSeq' | 'partnerHistory'>[]
 }
 
 export interface Session {
